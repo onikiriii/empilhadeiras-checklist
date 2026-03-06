@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+frontend/checklist-web/node_modules/
+
+# Build outputs
+backend/Checklist.Api/bin/
+backend/Checklist.Api/obj/
+
+# Environment files
+.env
+.env.local
+.env.production
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
