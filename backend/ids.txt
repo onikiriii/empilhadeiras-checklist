@@ -1,0 +1,24 @@
+
+ 
+
+ 
+
+ 
+  
+  
+  
+  {
+    "id": "019c8689-d1b1-713f-b9c5-3eb7c7eace48",
+    "categoriaId": "019c8681-7d96-7850-ba0a-f9f5b1bf30ef",
+    "ordem": 0,
+    "descricao": "12. Buzina em perfeito estado de funcionamento?",
+    "ativo": true
+  },
+  {
+    "id": "019c868a-0cbf-7753-a2e8-f6d9e9d94760",
+    "categoriaId": "019c8681-7d96-7850-ba0a-f9f5b1bf30ef",
+    "ordem": 0,
+    "descricao": "13. Garfos estão em bom estado?",
+    "ativo": true
+  }
+]
