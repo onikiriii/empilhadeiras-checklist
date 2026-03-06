@@ -4,9 +4,14 @@ EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY ["Checklist.Api.csproj", "./"]
-RUN dotnet restore "Checklist.Api.csproj"
+
+# Copiar tudo da pasta atual
 COPY . .
+
+# Restaurar dependências
+RUN dotnet restore "Checklist.Api.csproj"
+
+# Build e publish
 RUN dotnet publish "Checklist.Api.csproj" -c Release -o /app/publish
 
 FROM base AS final
