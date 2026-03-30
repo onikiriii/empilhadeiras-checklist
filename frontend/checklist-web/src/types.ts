@@ -2,6 +2,7 @@ export type ItemStatus = "NaoVerificado" | "OK" | "NOK" | "NA";
 
 export type EquipamentoDto = {
   id: string;
+  setorId: string;
   codigo: string;
   descricao: string;
   ativa: boolean;
@@ -12,6 +13,7 @@ export type EquipamentoDto = {
 
 export type ChecklistItemTemplateDto = {
   id: string;
+  setorId: string;
   categoriaId: string;
   ordem: number;
   descricao: string;
@@ -21,6 +23,7 @@ export type ChecklistItemTemplateDto = {
 
 export type ChecklistDto = {
   id: string;
+  setorId: string;
   equipamentoId: string;
   equipamentoCodigo: string;
   operadorId: string;
@@ -29,6 +32,7 @@ export type ChecklistDto = {
   aprovado: boolean;
   observacoesGerais?: string | null;
   status: string;
+  assinaturaOperadorBase64?: string | null;
   itens: Array<{
     id: string;
     templateId: string;

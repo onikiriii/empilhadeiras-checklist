@@ -4,6 +4,7 @@ namespace Checklist.Api.Dtos;
 
 public record ChecklistItemTemplateDto(
     Guid Id,
+    Guid SetorId,
     Guid CategoriaId,
     int Ordem,
     string Descricao,

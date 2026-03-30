@@ -1,22 +1,33 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Checklist.Api.Data;
+using Checklist.Api.Options;
+using Checklist.Api.Security;
+using Checklist.Api.Support;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using MySql.EntityFrameworkCore.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1) Configurar JSON camelCase + Enum como string
+builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection("Auth"));
+
+var authOptions = builder.Configuration.GetSection("Auth").Get<AuthOptions>() ?? new AuthOptions();
+if (string.IsNullOrWhiteSpace(authOptions.JwtKey))
+    throw new InvalidOperationException("Auth:JwtKey precisa estar configurado.");
+
 builder.Services
     .AddControllers()
     .AddJsonOptions(o =>
     {
         o.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         o.JsonSerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
-        o.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+        o.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
         o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// 2) CORS - Configurar para desenvolvimento e produção
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("frontend", policy =>
@@ -30,104 +41,124 @@ builder.Services.AddCors(options =>
         }
         else
         {
-            // Produção: aceita qualquer origem Vercel
-            policy.SetIsOriginAllowed(origin => 
-                origin.Contains("vercel.app") || 
-                origin.Contains("localhost"))
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
+            policy.SetIsOriginAllowed(origin =>
+                    origin.Contains("vercel.app") ||
+                    origin.Contains("localhost"))
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
         }
     });
 });
 
-// 3) EF Core (PostgreSQL)
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? builder.Configuration.GetConnectionString("AppDbConnectionString")
+    ?? Environment.GetEnvironmentVariable("MYSQL_URL")
     ?? Environment.GetEnvironmentVariable("DATABASE_URL")
     ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
 
-// Se for URL do Railway (postgresql://), converter para connection string
-if (!string.IsNullOrEmpty(connectionString) && connectionString.StartsWith("postgresql://"))
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException("ConnectionStrings:Default precisa estar configurado para o MySQL.");
+
+if (connectionString.StartsWith("mysql://", StringComparison.OrdinalIgnoreCase))
 {
     var uri = new Uri(connectionString);
     var userInfo = uri.UserInfo.Split(':');
-    connectionString = $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.Trim('/')};Username={userInfo[0]};Password={userInfo[1]}";
+    var database = uri.AbsolutePath.Trim('/');
+    var portNumber = uri.IsDefaultPort ? 3306 : uri.Port;
+    connectionString =
+        $"Server={uri.Host};Port={portNumber};Database={database};User ID={Uri.UnescapeDataString(userInfo[0])};Password={Uri.UnescapeDataString(userInfo[1])};SslMode=Disabled;AllowPublicKeyRetrieval=True;";
 }
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+builder.Services.AddDbContext<AppDbContext>(options => options.UseMySQL(connectionString));
+builder.Services.AddSingleton<PasswordHashingService>();
+builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddScoped<SupervisorLoginGenerator>();
+builder.Services.AddScoped<BootstrapDataSeeder>();
 
-// 4) Swagger
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateIssuerSigningKey = true,
+            ValidateLifetime = true,
+            ValidIssuer = authOptions.Issuer,
+            ValidAudience = authOptions.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(authOptions.JwtKey)),
+            ClockSkew = TimeSpan.FromMinutes(1)
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("SupervisorReady", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context => !CurrentSupervisorClaims.GetForceChangePassword(context.User));
+    });
+
+    options.AddPolicy("SectorSupervisorReady", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+            !CurrentSupervisorClaims.GetForceChangePassword(context.User) &&
+            !CurrentSupervisorClaims.GetIsMaster(context.User));
+    });
+
+    options.AddPolicy("MasterReady", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+            !CurrentSupervisorClaims.GetForceChangePassword(context.User) &&
+            CurrentSupervisorClaims.GetIsMaster(context.User));
+    });
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 5) Logging
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
-// 6) Configurar porta para Railway
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-builder.WebHost.ConfigureKestrel(options =>
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
 {
-    options.ListenAnyIP(int.Parse(port));
-});
+    builder.WebHost.ConfigureKestrel(options =>
+    {
+        options.ListenAnyIP(int.Parse(port));
+    });
+}
 
 var app = builder.Build();
 
-// 7) Aplicar migrações automaticamente em produção
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+
+    var bootstrapDataSeeder = scope.ServiceProvider.GetRequiredService<BootstrapDataSeeder>();
+    await bootstrapDataSeeder.SeedAsync();
 }
 
-// 8) Middleware pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// Não usar HTTPS Redirection em produção (Railway já usa HTTPS)
 if (!app.Environment.IsProduction())
 {
     app.UseHttpsRedirection();
 }
 
 app.UseCors("frontend");
+app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
-
-app.Run();
-
-// 3) EF Core (PostgreSQL)
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
-
-// 4) Swagger (se você usa)
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// 5) Logging (bom para debug)
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
-
-// 6) Middleware pipeline
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.UseHttpsRedirection();
-
-app.UseCors("frontend"); // ← CORS antes de UseAuthorization
-
-app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();

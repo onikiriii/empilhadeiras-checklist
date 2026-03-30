@@ -1,12 +1,15 @@
 using Checklist.Api.Data;
 using Checklist.Api.Dtos;
 using Checklist.Api.Models;
+using Checklist.Api.Security;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace Checklist.Api.Controllers;
 
 [ApiController]
+[Authorize(Policy = "SectorSupervisorReady")]
 [Route("api/supervisor/checklist-itens-template")]
 public class ChecklistItensTemplateController : ControllerBase
 {
@@ -14,6 +17,7 @@ public class ChecklistItensTemplateController : ControllerBase
 
     public ChecklistItensTemplateController(AppDbContext db) => _db = db;
 
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<List<ChecklistItemTemplateDto>>> ListarPorCategoria(
         [FromQuery] Guid categoriaId,
@@ -31,7 +35,7 @@ public class ChecklistItensTemplateController : ControllerBase
 
         var lista = await q
             .OrderBy(x => x.Ordem)
-            .Select(x => new ChecklistItemTemplateDto(x.Id, x.CategoriaId, x.Ordem, x.Descricao, x.Instrucao, x.Ativo))
+            .Select(x => new ChecklistItemTemplateDto(x.Id, x.SetorId, x.CategoriaId, x.Ordem, x.Descricao, x.Instrucao, x.Ativo))
             .ToListAsync();
 
         return Ok(lista);
@@ -40,6 +44,10 @@ public class ChecklistItensTemplateController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ChecklistItemTemplateDto>> Criar([FromBody] CriarChecklistItemTemplateRequest req)
     {
+        var setorId = CurrentSupervisorClaims.GetSetorId(User);
+        if (setorId is null)
+            return Unauthorized(new { message = "Supervisor sem setor associado." });
+
         if (req.CategoriaId == Guid.Empty)
             return BadRequest(new { message = "CategoriaId é obrigatório." });
 
@@ -47,12 +55,18 @@ public class ChecklistItensTemplateController : ControllerBase
         if (string.IsNullOrWhiteSpace(desc))
             return BadRequest(new { message = "Descricao é obrigatória." });
 
-        var categoriaOk = await _db.CategoriasEquipamento.AnyAsync(c => c.Id == req.CategoriaId && c.Ativa);
-        if (!categoriaOk)
-            return BadRequest(new { message = "Categoria inválida ou inativa." });
+        var categoria = await _db.CategoriasEquipamento
+            .AsNoTracking()
+            .Where(c => c.Id == req.CategoriaId && c.Ativa && c.SetorId == setorId.Value)
+            .Select(c => new { c.Id, c.SetorId })
+            .FirstOrDefaultAsync();
+
+        if (categoria is null)
+            return BadRequest(new { message = "Categoria inválida, inativa ou fora do setor." });
 
         var item = new ChecklistItemTemplate
         {
+            SetorId = categoria.SetorId,
             CategoriaId = req.CategoriaId,
             Ordem = req.Ordem,
             Descricao = desc,
@@ -63,14 +77,19 @@ public class ChecklistItensTemplateController : ControllerBase
         _db.ChecklistItensTemplate.Add(item);
         await _db.SaveChangesAsync();
 
-        return Created("", new ChecklistItemTemplateDto(item.Id, item.CategoriaId, item.Ordem, item.Descricao, item.Instrucao, item.Ativo));
+        return Created("", new ChecklistItemTemplateDto(item.Id, item.SetorId, item.CategoriaId, item.Ordem, item.Descricao, item.Instrucao, item.Ativo));
     }
 
     [HttpPut("{id:guid}")]
     public async Task<ActionResult<ChecklistItemTemplateDto>> Atualizar(Guid id, [FromBody] AtualizarChecklistItemTemplateRequest req)
     {
-        var item = await _db.ChecklistItensTemplate.FirstOrDefaultAsync(x => x.Id == id);
-        if (item is null) return NotFound(new { message = "Item não encontrado." });
+        var setorId = CurrentSupervisorClaims.GetSetorId(User);
+        if (setorId is null)
+            return Unauthorized(new { message = "Supervisor sem setor associado." });
+
+        var item = await _db.ChecklistItensTemplate.FirstOrDefaultAsync(x => x.Id == id && x.SetorId == setorId.Value);
+        if (item is null)
+            return NotFound(new { message = "Item não encontrado." });
 
         var desc = (req.Descricao ?? "").Trim();
         if (string.IsNullOrWhiteSpace(desc))
@@ -83,18 +102,23 @@ public class ChecklistItensTemplateController : ControllerBase
 
         await _db.SaveChangesAsync();
 
-        return Ok(new ChecklistItemTemplateDto(item.Id, item.CategoriaId, item.Ordem, item.Descricao, item.Instrucao, item.Ativo));
+        return Ok(new ChecklistItemTemplateDto(item.Id, item.SetorId, item.CategoriaId, item.Ordem, item.Descricao, item.Instrucao, item.Ativo));
     }
 
     [HttpDelete("{id:guid}")]
-public async Task<ActionResult> Excluir(Guid id)
-{
-    var item = await _db.ChecklistItensTemplate.FirstOrDefaultAsync(x => x.Id == id);
-    if (item is null) return NotFound(new { message = "Item não encontrado." });
+    public async Task<ActionResult> Excluir(Guid id)
+    {
+        var setorId = CurrentSupervisorClaims.GetSetorId(User);
+        if (setorId is null)
+            return Unauthorized(new { message = "Supervisor sem setor associado." });
 
-    _db.ChecklistItensTemplate.Remove(item);
-    await _db.SaveChangesAsync();
+        var item = await _db.ChecklistItensTemplate.FirstOrDefaultAsync(x => x.Id == id && x.SetorId == setorId.Value);
+        if (item is null)
+            return NotFound(new { message = "Item não encontrado." });
 
-    return NoContent();
-}
+        _db.ChecklistItensTemplate.Remove(item);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
 }
