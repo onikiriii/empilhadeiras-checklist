@@ -28,7 +28,7 @@ builder.Services
         o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-var frontendUrl = builder.Configuration["Frontend:Url"]
+var frontendUrl = builder.Configuration["FRONTEND_URL"]
                   ?? Environment.GetEnvironmentVariable("FRONTEND_URL");
 
 builder.Services.AddCors(options =>
@@ -38,11 +38,15 @@ builder.Services.AddCors(options =>
         var allowedOrigins = new List<string>
         {
             "http://localhost:5173",
-            "http://localhost:5174"
+            "http://localhost:5174",
+            "https://empilhadeiras-checklist.vercel.app"
         };
 
-        if (!string.IsNullOrWhiteSpace(frontendUrl))
+        if (!string.IsNullOrWhiteSpace(frontendUrl) &&
+            !allowedOrigins.Contains(frontendUrl))
+        {
             allowedOrigins.Add(frontendUrl);
+        }
 
         policy.WithOrigins(allowedOrigins.ToArray())
               .AllowAnyHeader()
