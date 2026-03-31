@@ -50,16 +50,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-var connectionString = builder.Configuration.GetConnectionString("Default")
-    ?? builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? builder.Configuration.GetConnectionString("AppDbConnectionString")
-    ?? Environment.GetEnvironmentVariable("MYSQL_URL")
-    ?? Environment.GetEnvironmentVariable("DATABASE_URL")
-    ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-    ?? Environment.GetEnvironmentVariable("ConnectionStrings__Default");
+var connectionString = Environment.GetEnvironmentVariable("MYSQL_URL");
 
 if (string.IsNullOrWhiteSpace(connectionString))
-    throw new InvalidOperationException("ConnectionStrings:Default precisa estar configurado para o MySQL.");
+    throw new InvalidOperationException("MYSQL_URL precisa estar configurado para o MySQL.");
 
 if (connectionString.StartsWith("mysql://", StringComparison.OrdinalIgnoreCase))
 {
