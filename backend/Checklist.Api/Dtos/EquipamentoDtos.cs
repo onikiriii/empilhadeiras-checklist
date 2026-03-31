@@ -4,6 +4,7 @@ namespace Checklist.Api.Dtos;
 
 public record EquipamentoDto(
     Guid Id,
+    Guid SetorId,
     string Codigo,
     string Descricao,
     bool Ativa,

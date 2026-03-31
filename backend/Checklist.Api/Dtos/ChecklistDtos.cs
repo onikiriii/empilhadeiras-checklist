@@ -5,6 +5,7 @@ namespace Checklist.Api.Dtos;
 
 public record ChecklistDto(
     Guid Id,
+    Guid SetorId,
     Guid EquipamentoId,
     string EquipamentoCodigo,
     Guid OperadorId,
@@ -13,6 +14,7 @@ public record ChecklistDto(
     bool Aprovado,
     string? ObservacoesGerais,
     ChecklistStatus Status,
+    string? AssinaturaOperadorBase64,
     List<ChecklistItemDto> Itens
 );
 
@@ -30,7 +32,8 @@ public record EnviarChecklistRequest(
     [Required] Guid EquipamentoId,
     [Required] Guid OperadorId,
     [Required] List<EnviarChecklistItemRequest> Itens,
-    string? ObservacoesGerais
+    string? ObservacoesGerais,
+    [Required] string AssinaturaOperadorBase64
 );
 
 public record EnviarChecklistItemRequest(

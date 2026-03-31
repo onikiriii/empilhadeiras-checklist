@@ -8,6 +8,9 @@ public class Equipamento
     public string Descricao { get; set; } = "";
     public bool Ativa { get; set; } = true;
 
+    public Guid SetorId { get; set; }
+    public Setor Setor { get; set; } = null!;
+
     public Guid CategoriaId { get; set; }
     public CategoriaEquipamento Categoria { get; set; } = null!;
 

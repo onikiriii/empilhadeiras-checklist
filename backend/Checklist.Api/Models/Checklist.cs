@@ -1,8 +1,15 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Checklist.Api.Models;
 
 public class Checklist
 {
+    [Required]
+    [MaxLength(32)]
     public Guid Id { get; set; }
+
+    public Guid SetorId { get; set; }
+    public Setor Setor { get; set; } = null!;
 
     public Guid EquipamentoId { get; set; }
     public Equipamento Equipamento { get; set; } = null!;
@@ -13,6 +20,9 @@ public class Checklist
     public DateTime DataRealizacao { get; set; } = DateTime.UtcNow;
     public bool Aprovado { get; set; }  // geral (todos os itens OK)
     public string? ObservacoesGerais { get; set; }
+
+    public string? AssinaturaOperadorBase64 { get; set; }
+    public DateTime? AssinadoEm { get; set; }
 
     public ChecklistStatus Status { get; set; } = ChecklistStatus.Pendente;
 

@@ -1,10 +1,14 @@
-import { useRef, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import SignatureCanvas from "react-signature-canvas";
+import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
-import type { ChecklistDto, ChecklistItemTemplateDto, EquipamentoDto, ItemStatus } from "../types";
-import { useNavigate } from "react-router-dom";
-
-console.log("ChecklistPage carregou (NOVO)", new Date().toISOString());
+import "../styles/global.css";
+import type {
+  ChecklistDto,
+  ChecklistItemTemplateDto,
+  EquipamentoDto,
+  ItemStatus,
+} from "../types";
 
 type ItemForm = {
   templateId: string;
@@ -18,105 +22,36 @@ type OperadorSugestao = {
   matricula: string;
 };
 
-type EquipSugestao = { id: string; codigo: string; descricao: string; qrId: string };
-
 export function ChecklistPage() {
   const { qrId } = useParams();
+  const navigate = useNavigate();
+
   const [loading, setLoading] = useState(true);
   const [equipamento, setEquipamento] = useState<EquipamentoDto | null>(null);
   const [templates, setTemplates] = useState<ChecklistItemTemplateDto[]>([]);
   const [itens, setItens] = useState<Record<string, ItemForm>>({});
-  const [operadorId, setOperadorId] = useState(""); // por enquanto manual
-  const [operadorQuery, setOperadorQuery] = useState(""); // texto digitado (nome/matrícula)
+  const [operadorId, setOperadorId] = useState("");
+  const [operadorQuery, setOperadorQuery] = useState("");
   const [sugestoesOperador, setSugestoesOperador] = useState<OperadorSugestao[]>([]);
   const [loadingOperador, setLoadingOperador] = useState(false);
   const [obsGerais, setObsGerais] = useState("");
-  const [qrIdDemo, setQrIdDemo] = useState("");
+  const [signatureStepOpen, setSignatureStepOpen] = useState(false);
+  const [assinaturaBase64, setAssinaturaBase64] = useState("");
   const [result, setResult] = useState<ChecklistDto | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const operadorBoxRef = useRef<HTMLDivElement | null>(null);
-  const [errosItem, setErrosItem] = useState<Record<string, string>>({});
-  const navigate = useNavigate();
-  const [equipQuery, setEquipQuery] = useState("");
-  const [equipId, setEquipId] = useState<string>("");
-  const [equipQrId, setEquipQrId] = useState<string>("");
-  const [equipSugestoes, setEquipSugestoes] = useState<EquipSugestao[]>([]);
-  const [loadingEquip, setLoadingEquip] = useState(false);
-  
-  const equipBoxRef = useRef<HTMLDivElement | null>(null);
-  
+
+  const signatureRef = useRef<SignatureCanvas | null>(null);
+
   const allAnswered = useMemo(() => {
     if (templates.length === 0) return false;
-    return templates.every(t => itens[t.id]?.status && itens[t.id].status !== "NaoVerificado");
-  }, [templates, itens]);
+    return templates.every((template) => {
+      const status = itens[template.id]?.status;
+      return status && status !== "NaoVerificado";
+    });
+  }, [itens, templates]);
 
-useEffect(() => {
-  function handleClickOutside(ev: MouseEvent) {
-    const el = equipBoxRef.current;
-    if (!el) return;
-    if (!el.contains(ev.target as Node)) setEquipSugestoes([]);
-  }
-
-  document.addEventListener("mousedown", handleClickOutside);
-  return () => document.removeEventListener("mousedown", handleClickOutside);
-}, []);
-
-   useEffect(() => {
-  const q = equipQuery.trim();
-  if (equipId) return; // se já selecionou, não busca
-  if (q.length < 2) {
-    setEquipSugestoes([]);
-    return;
-  }
-
-  const handle = setTimeout(async () => {
-    setLoadingEquip(true);
-    try {
-      // MVP: buscar tudo e filtrar no front (se tiver poucos equipamentos)
-      const lista = await api.get<any[]>("/api/equipamentos");
-
-      const filtrado = lista
-        .map((e) => ({
-          id: e.id,
-          codigo: e.codigo,
-          descricao: e.descricao,
-          qrId: e.qrId,
-        }))
-        .filter((e) => {
-          const qq = q.toUpperCase();
-          return (
-            (e.codigo ?? "").toUpperCase().includes(qq) ||
-            (e.descricao ?? "").toUpperCase().includes(qq) ||
-            (e.qrId ?? "").toUpperCase().includes(qq)
-          );
-        })
-        .slice(0, 8);
-
-      setEquipSugestoes(filtrado);
-    } catch {
-      setEquipSugestoes([]);
-    } finally {
-      setLoadingEquip(false);
-    }
-  }, 250);
-
-  return () => clearTimeout(handle);
-}, [equipQuery, equipId]); 
-  
-  useEffect(() => {
-        function handleClickOutside(ev: MouseEvent) {
-        const el = operadorBoxRef.current;
-        if (!el) return;
-
-        const target = ev.target as Node;
-            if (!el.contains(target)) {
-            setSugestoesOperador([]);
-        }
-    }
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+  const hasOperatorSearch = operadorQuery.trim().length >= 2 && !operadorId;
+  const canOpenSignature = !!operadorId && allAnswered;
 
   useEffect(() => {
     let mounted = true;
@@ -133,357 +68,648 @@ useEffect(() => {
 
         if (!mounted) return;
 
+        const initial: Record<string, ItemForm> = {};
+        for (const template of tpl) {
+          initial[template.id] = {
+            templateId: template.id,
+            status: "NaoVerificado",
+          };
+        }
+
         setEquipamento(eq);
         setTemplates(tpl);
-
-        // inicializa itens como "NaoVerificado"
-        const initial: Record<string, ItemForm> = {};
-        for (const t of tpl) {
-          initial[t.id] = { templateId: t.id, status: "NaoVerificado" };
-        }
         setItens(initial);
       } catch (e: any) {
         if (!mounted) return;
-        setError(e.message ?? "Falha ao carregar");
+        setError(e.message ?? "Falha ao carregar checklist.");
       } finally {
         if (!mounted) return;
         setLoading(false);
       }
     }
 
-    if (qrId) load();
-    return () => { mounted = false; };
+    if (qrId) {
+      void load();
+    }
+
+    return () => {
+      mounted = false;
+    };
   }, [qrId]);
 
-useEffect(() => {
-  const q = operadorQuery.trim();
+  useEffect(() => {
+    const query = operadorQuery.trim();
+    let active = true;
 
     if (operadorId) {
-    setSugestoesOperador([]);
-    setLoadingOperador(false);
-    return;
-    }
-
-  // Se digitou pouco, não busca e limpa sugestões
-  if (q.length < 2) {
-    setSugestoesOperador([]);
-    setLoadingOperador(false);
-    setOperadorId(""); // força seleção válida da lista
-    return;
-  }
-
-  // Debounce: espera o usuário parar de digitar
-  const handle = window.setTimeout(async () => {
-    try {
-      setLoadingOperador(true);
-
-      const data = await api.get<OperadorSugestao[]>(
-        `/api/operadores/busca?query=${encodeURIComponent(q)}&take=10`
-      );
-
-      setSugestoesOperador(data);
-
-      // Se o usuário digitou algo que não é uma opção selecionada,
-      // mantenha operadorId vazio até ele clicar numa sugestão.
-      setOperadorId("");
-    } catch {
       setSugestoesOperador([]);
-      setOperadorId("");
-    } finally {
       setLoadingOperador(false);
+      return () => {
+        active = false;
+      };
     }
-    }, 250);
 
-    return () => window.clearTimeout(handle);
-    }, [operadorQuery, operadorId]);
+    if (query.length < 2) {
+      setSugestoesOperador([]);
+      setLoadingOperador(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    const handle = window.setTimeout(async () => {
+      try {
+        if (!active) return;
+        setLoadingOperador(true);
+
+        const data = await api.get<OperadorSugestao[]>(
+          `/api/operadores/busca?query=${encodeURIComponent(query)}&take=10${
+            equipamento ? `&setorId=${equipamento.setorId}` : ""
+          }`
+        );
+
+        if (!active) return;
+        setSugestoesOperador(data);
+      } catch {
+        if (!active) return;
+        setSugestoesOperador([]);
+      } finally {
+        if (!active) return;
+        setLoadingOperador(false);
+      }
+    }, 220);
+
+    return () => {
+      active = false;
+      window.clearTimeout(handle);
+    };
+  }, [equipamento, operadorId, operadorQuery]);
+
+  useEffect(() => {
+    if (canOpenSignature) return;
+    setSignatureStepOpen(false);
+    signatureRef.current?.clear();
+    setAssinaturaBase64("");
+  }, [canOpenSignature]);
+
+  function invalidateSignature() {
+    signatureRef.current?.clear();
+    setAssinaturaBase64("");
+  }
 
   function setStatus(templateId: string, status: ItemStatus) {
-    setItens(prev => ({
-      ...prev,
-      [templateId]: { ...prev[templateId], templateId, status, observacao: status === "NOK" ? (prev[templateId]?.observacao ?? "") : "" }
+    invalidateSignature();
+    setItens((current) => ({
+      ...current,
+      [templateId]: {
+        ...current[templateId],
+        templateId,
+        status,
+        observacao: status === "NOK" ? current[templateId]?.observacao ?? "" : "",
+      },
     }));
   }
 
-  function setObs(templateId: string, obs: string) {
-    setItens(prev => ({
-      ...prev,
-      [templateId]: { ...prev[templateId], templateId, observacao: obs }
+  function setObs(templateId: string, observacao: string) {
+    invalidateSignature();
+    setItens((current) => ({
+      ...current,
+      [templateId]: {
+        ...current[templateId],
+        templateId,
+        observacao,
+      },
     }));
   }
 
-async function submit() {
-  if (!equipamento) return;
+  function capturarAssinatura() {
+    if (!signatureRef.current) return "";
 
-  setError(null);
-  setResult(null);
+    if (signatureRef.current.isEmpty()) {
+      setAssinaturaBase64("");
+      return "";
+    }
 
-  if (!operadorId) {
-    setError("Selecione um operador na lista antes de enviar.");
-    return;
+    const dataUrl = signatureRef.current.getCanvas().toDataURL("image/png");
+    setAssinaturaBase64(dataUrl);
+    return dataUrl;
   }
 
-  if (!allAnswered) {
-    setError("Responda todos os itens (OK/NOK/NA) antes de enviar.");
-    return;
+  function limparAssinatura() {
+    signatureRef.current?.clear();
+    setAssinaturaBase64("");
   }
 
-  const payload = {
-    equipamentoId: equipamento.id,
-    operadorId: operadorId.trim(),
-    itens: templates.map(t => ({
-      templateId: t.id,
-      status: itens[t.id].status,
-      observacao: itens[t.id].status === "NOK" ? (itens[t.id].observacao ?? "") : null
-    })),
-    observacoesGerais: obsGerais || null
-  };
+  function abrirAssinatura() {
+    if (!operadorId) {
+      setError("Selecione um operador antes de assinar.");
+      return;
+    }
 
-  console.log("PAYLOAD =>", JSON.stringify(payload, null, 2));
+    if (!allAnswered) {
+      setError("Conclua todos os itens antes de assinar.");
+      return;
+    }
 
-  try {
-    const created = await api.post<ChecklistDto>("/api/checklists", payload);
-    setResult(created);
-    
-    // REDIRECIONA PARA HOME COM MENSAGEM DE SUCESSO
-    setTimeout(() => {
-      navigate("/?sucesso=1");
-    }, 1500);
-  } catch (e: any) {
-    setError(e.message ?? "Falha ao enviar");
+    setError(null);
+    setSignatureStepOpen(true);
+    limparAssinatura();
   }
-}
 
-  if (loading) return <div>Carregando...</div>;
-  if (error) return <div style={{ color: "crimson" }}>Erro: {error}</div>;
-  if (!equipamento) return <div>Equipamento não encontrado.</div>;
+  async function submit() {
+    if (!equipamento) return;
+
+    setError(null);
+    setResult(null);
+
+    if (!operadorId) {
+      setError("Selecione um operador antes de enviar.");
+      return;
+    }
+
+    if (!allAnswered) {
+      setError("Responda todos os itens antes de enviar.");
+      return;
+    }
+
+    const assinatura = capturarAssinatura();
+    if (!assinatura) {
+      setError("O operador precisa assinar antes de enviar.");
+      return;
+    }
+
+    const payload = {
+      equipamentoId: equipamento.id,
+      operadorId: operadorId.trim(),
+      itens: templates.map((template) => ({
+        templateId: template.id,
+        status: itens[template.id].status,
+        observacao: itens[template.id].status === "NOK" ? itens[template.id].observacao ?? "" : null,
+      })),
+      observacoesGerais: obsGerais || null,
+      assinaturaOperadorBase64: assinatura,
+    };
+
+    try {
+      const created = await api.post<ChecklistDto>("/api/checklists", payload);
+      setResult(created);
+
+      window.setTimeout(() => {
+        navigate("/?sucesso=1");
+      }, 1500);
+    } catch (e: any) {
+      setError(e.message ?? "Falha ao enviar checklist.");
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="cf-mobile-page">
+        <div className="cf-checklist-shell">
+          <div className="cf-loading cf-surface cf-surface-padded">Carregando checklist...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !equipamento) {
+    return (
+      <div className="cf-mobile-page">
+        <div className="cf-checklist-shell">
+          <div className="cf-alert cf-alert-error">{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!equipamento) {
+    return (
+      <div className="cf-mobile-page">
+        <div className="cf-checklist-shell">
+          <div className="cf-alert cf-alert-error">Equipamento não encontrado.</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (result) {
+    return (
+      <div className="cf-mobile-page">
+        <div className="cf-checklist-shell">
+          <section className="cf-mobile-success">
+            <div className="cf-mobile-success-icon">
+              <CheckIcon />
+            </div>
+            <h1 className="cf-mobile-success-title">Checklist enviado</h1>
+            <p className="cf-mobile-success-text">
+              Equipamento <strong>{result.equipamentoCodigo}</strong>
+            </p>
+            <p className="cf-mobile-success-meta">
+              {new Date(result.dataRealizacao).toLocaleString("pt-BR")}
+            </p>
+          </section>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 16 }}>
-      <h2>Checklist - {equipamento.codigo}</h2>
-      <div><b>Descrição:</b> {equipamento.descricao}</div>
-      <div><b>Categoria:</b> {equipamento.categoriaNome}</div>
-      <div><b>QR:</b> {equipamento.qrId}</div>
+    <div className="cf-mobile-page">
+      <div className="cf-mobile-backdrop cf-mobile-backdrop-top" />
+      <div className="cf-mobile-backdrop cf-mobile-backdrop-bottom" />
 
-      <hr />
+      <div className="cf-checklist-shell">
+        <section className="cf-checklist-hero">
+          <div className="cf-checklist-hero-top">
+            <div className="cf-checklist-brand">
+              <div className="cf-mobile-logo">
+                <QrIcon />
+              </div>
 
-      <div ref={operadorBoxRef} style={{ position: "relative", maxWidth: 520 }}>
-  <label>
-    <b>Operador (digite nome ou matrícula):</b>{" "}
-    <input
-    value={operadorQuery}
-    onChange={(e) => {
-        setOperadorQuery(e.target.value);
-        setOperadorId(""); // só clique salva o ID
-    }}
-    style={{
-  width: 420,
-    border: operadorId ? "2px solid #1f6f3d" : "1px solid #ccc",
-    background: operadorId ? "#e8f5e9" : "white",
-    color: "#111",
-    borderRadius: 6,
-    padding: "8px 10px",
-    outline: "none",
-    opacity: operadorId ? 0.85 : 1,
-    cursor: operadorId ? "not-allowed" : "text",
-}}
-    placeholder=""
-    autoComplete="off"
-    />
-
-    {operadorId ? (
-  <button
-    type="button"
-    onClick={() => {
-      setOperadorId("");
-      setOperadorQuery("");
-      setSugestoesOperador([]);
-    }}
-    style={{
-      marginLeft: 8,
-      padding: "8px 10px",
-      borderRadius: 6,
-      border: "1px solid #ccc",
-      background: "white",
-      cursor: "pointer",
-    }}
-  >
-    Trocar
-  </button>
-) : null}
-
-  </label>
-
-  {loadingOperador ? (
-    <div style={{ marginTop: 6, color: "#666" }}>Buscando...</div>
-  ) : null}
-
-  {sugestoesOperador.length > 0 ? (
-    <div
-      style={{
-        position: "absolute",
-        zIndex: 10,
-        top: 44,
-        left: 0,
-        width: 520,
-        border: "1px solid #ddd",
-        borderRadius: 8,
-        background: "white",
-        boxShadow: "0 10px 24px rgba(0,0,0,0.08)",
-        overflow: "hidden",
-      }}
-    >
-      {sugestoesOperador.map((op) => (
-        <button
-          key={op.id}
-          type="button"
-          onClick={() => {
-        console.log("CLIQUEI NO OPERADOR =>", op);
-        setOperadorId(op.id);
-        setOperadorQuery(`${op.nome} (${op.matricula})`);
-        setSugestoesOperador([]);
-        }}
-          style={{
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            padding: "10px 12px",
-            background: "white",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          <b>{op.nome}</b> — {op.matricula}
-        </button>
-      ))}
-    </div>
-  ) : null}
-
-</div>
-
-      <div style={{ marginTop: 12 }}>
-        <label>
-          <b>Observações gerais:</b><br />
-          <textarea value={obsGerais} onChange={e => setObsGerais(e.target.value)} rows={3} style={{ width: "100%" }} />
-        </label>
-      </div>
-
-      <hr />
-
-      {templates.map(t => {
-        const current = itens[t.id]?.status ?? "NaoVerificado";
-        return (
-          <div key={t.id} style={{ padding: 12, border: "1px solid #ddd", borderRadius: 8, marginBottom: 10 }}>
-            <div><b>{t.ordem}.</b> {t.descricao}</div>
-            {t.instrucao ? <div style={{ color: "#555" }}><i>{t.instrucao}</i></div> : null}
-
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <button onClick={() => setStatus(t.id, "OK")} style={{ background: current === "OK" ? "#c7f9cc" : undefined }}>OK</button>
-              <button onClick={() => setStatus(t.id, "NOK")} style={{ background: current === "NOK" ? "#ffd6a5" : undefined }}>NOK</button>
-              <button onClick={() => setStatus(t.id, "NA")} style={{ background: current === "NA" ? "#bde0fe" : undefined }}>NA</button>
+              <div>
+                <div className="cf-mobile-brand-name">CheckFlow</div>
+                <div className="cf-checklist-brand-meta">Checklist operacional</div>
+              </div>
             </div>
 
-            {current === "NOK" ? (
-              <div style={{ marginTop: 10 }}>
-                <label>
-                  Observação (obrigatória se NOK):
-                  <input
-                    value={itens[t.id]?.observacao ?? ""}
-                    onChange={e => setObs(t.id, e.target.value)}
-                    style={{ width: "100%" }}
-                  />
-                </label>
-              </div>
-            ) : null}
+            <button
+              type="button"
+              className="cf-button cf-button-secondary cf-checklist-back-button"
+              onClick={() => navigate(-1)}
+            >
+              Voltar
+            </button>
           </div>
-        );
-      })}
 
-      <button onClick={submit} disabled={!allAnswered} style={{ padding: "10px 14px" }}>
-        Enviar checklist
-      </button>
+          <div className="cf-checklist-hero-copy">
+            <h1 className="cf-checklist-title">Checklist</h1>
+            <p className="cf-checklist-subtitle">Preencha a inspeção do equipamento antes da assinatura do operador.</p>
+          </div>
 
-      {result ? (
-  <div style={{ textAlign: "center", padding: 40 }}>
-    <div style={{
-      background: "#e8f5e9",
-      border: "2px solid #1f6f3d",
-      borderRadius: 16,
-      padding: 32,
-      marginBottom: 24,
-    }}>
-      <h1 style={{ color: "#1f6f3d", margin: "0 0 8px 0" }}>✓ Checklist Enviado</h1>
-      <p style={{ color: "#2e7d32", fontSize: 16, margin: 0 }}>
-        Equipamento: <b>{result.equipamentoCodigo}</b>
-      </p>
-      <p style={{ color: "#2e7d32", fontSize: 14, margin: "4px 0 0 0" }}>
-        {new Date(result.dataRealizacao).toLocaleString("pt-BR")}
-      </p>
-    </div>
+          <div className="cf-checklist-equipment-grid">
+            <div className="cf-checklist-equipment-card">
+              <span className="cf-checklist-equipment-label">Código</span>
+              <strong className="cf-checklist-equipment-value">{equipamento.codigo}</strong>
+            </div>
+            <div className="cf-checklist-equipment-card">
+              <span className="cf-checklist-equipment-label">Categoria</span>
+              <strong className="cf-checklist-equipment-value">{equipamento.categoriaNome}</strong>
+            </div>
+            <div className="cf-checklist-equipment-card cf-checklist-equipment-card-wide">
+              <span className="cf-checklist-equipment-label">Descrição</span>
+              <strong className="cf-checklist-equipment-value">{equipamento.descricao}</strong>
+            </div>
+            <div className="cf-checklist-equipment-card cf-checklist-equipment-card-wide">
+              <span className="cf-checklist-equipment-label">QR ID</span>
+              <strong className="cf-checklist-equipment-value">{equipamento.qrId}</strong>
+            </div>
+          </div>
 
-    <div style={{
-      background: "white",
-      border: "1px solid #ddd",
-      borderRadius: 12,
-      padding: 24,
-    }}>
-      <h3>Preencher outro checklist</h3>
-      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <input
-          value={qrIdDemo}
-          onChange={(e) => setQrIdDemo(e.target.value)}
-          placeholder="Digite o QR ID do equipamento"
-          style={{
-            width: 300,
-            padding: "12px 12px",
-            borderRadius: 10,
-            border: "1px solid #ccc",
-            fontSize: 16,
-          }}
-        />
-        <button
-          type="button"
-          onClick={async () => {
-            const val = qrIdDemo.trim();
-            if (!val) {
-              setError("Digite um QR ID válido.");
-              return;
-            }
+          <div className="cf-checklist-hero-form">
+            <section className="cf-checklist-hero-panel">
+              <div className="cf-checklist-hero-panel-head">
+                <div className="cf-checklist-hero-panel-icon">
+                  <UserIconLight />
+                </div>
 
-            setLoading(true);
-            try {
-              const eq = await api.get<EquipamentoDto>(`/api/equipamentos/por-qr/${val}`);
-              setEquipamento(eq);
-              setResult(null);
-              setQrIdDemo("");
-              setItens({});
-              setOperadorId("");
-              setOperadorQuery("");
-              setError("");
-              setErrosItem({});
-            } catch (e: any) {
-              setError(e?.message ?? "QR ID inválido ou equipamento não encontrado.");
-            } finally {
-              setLoading(false);
-            }
-          }}
-          disabled={loading}
-          style={{
-            padding: "12px 20px",
-            borderRadius: 10,
-            border: "none",
-            background: "#111827",
-            color: "white",
-            fontWeight: 700,
-            cursor: loading ? "not-allowed" : "pointer",
-            opacity: loading ? 0.6 : 1,
-          }}
-        >
-          {loading ? "Carregando..." : "Carregar"}
-        </button>
+                <div className="cf-checklist-section-copy">
+                  <h2 className="cf-checklist-hero-panel-title">Operador</h2>
+                  <p className="cf-checklist-hero-panel-text">Selecione o responsável pela execução.</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="cf-field-label cf-checklist-hero-label">Nome ou matrícula</label>
+                <input
+                  value={operadorQuery}
+                  onChange={(e) => {
+                    invalidateSignature();
+                    setOperadorQuery(e.target.value);
+                    setOperadorId("");
+                  }}
+                  placeholder="Digite para buscar"
+                  autoComplete="off"
+                  className={`cf-mobile-input cf-checklist-hero-input ${operadorId ? "selected" : ""}`}
+                />
+
+                {operadorId ? (
+                  <div className="cf-checklist-inline-row">
+                    <span className="cf-checklist-selection-ok">Operador selecionado</span>
+                    <button
+                      type="button"
+                      className="cf-mobile-inline-link cf-checklist-hero-link"
+                      onClick={() => {
+                        invalidateSignature();
+                        setOperadorId("");
+                        setOperadorQuery("");
+                        setSugestoesOperador([]);
+                      }}
+                    >
+                      Trocar operador
+                    </button>
+                  </div>
+                ) : null}
+
+                {hasOperatorSearch && loadingOperador ? (
+                  <div className="cf-mobile-helper cf-checklist-hero-helper">Buscando operadores...</div>
+                ) : null}
+
+                {hasOperatorSearch && !loadingOperador && sugestoesOperador.length > 0 ? (
+                  <div className="cf-checklist-suggestions">
+                    {sugestoesOperador.map((operador) => (
+                      <button
+                        key={operador.id}
+                        type="button"
+                        className="cf-checklist-suggestion"
+                        onClick={() => {
+                          invalidateSignature();
+                          setOperadorId(operador.id);
+                          setOperadorQuery(`${operador.nome} (${operador.matricula})`);
+                          setSugestoesOperador([]);
+                        }}
+                      >
+                        <strong>{operador.nome}</strong>
+                        <span>{operador.matricula}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                {hasOperatorSearch && !loadingOperador && sugestoesOperador.length === 0 ? (
+                  <div className="cf-mobile-helper cf-checklist-hero-helper">Nenhum operador encontrado.</div>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="cf-checklist-hero-panel">
+              <div className="cf-checklist-hero-panel-head">
+                <div className="cf-checklist-hero-panel-icon">
+                  <NotesIconLight />
+                </div>
+
+                <div className="cf-checklist-section-copy">
+                  <h2 className="cf-checklist-hero-panel-title">Observações gerais</h2>
+                  <p className="cf-checklist-hero-panel-text">Registre detalhes adicionais antes da assinatura.</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="cf-field-label cf-checklist-hero-label">Observações</label>
+                <textarea
+                  rows={4}
+                  value={obsGerais}
+                  onChange={(e) => {
+                    invalidateSignature();
+                    setObsGerais(e.target.value);
+                  }}
+                  placeholder="Digite observações adicionais"
+                  className="cf-mobile-textarea cf-checklist-hero-input cf-checklist-hero-textarea"
+                />
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section className="cf-checklist-workspace">
+          <section className="cf-checklist-items">
+            <div className="cf-checklist-items-head">
+              <div>
+                <h2 className="cf-checklist-section-title">Itens do checklist</h2>
+                <p className="cf-checklist-section-text">Marque cada item antes de seguir para a assinatura.</p>
+              </div>
+              <span className="cf-count">{templates.length}</span>
+            </div>
+
+            <div className="cf-checklist-items-grid">
+              {templates.map((template) => {
+                const current = itens[template.id]?.status ?? "NaoVerificado";
+
+                return (
+                  <article key={template.id} className="cf-checklist-item">
+                    <div className="cf-checklist-item-top">
+                      <div className="cf-checklist-item-heading">
+                        <div className="cf-checklist-item-order">{template.ordem}</div>
+                        <h3 className="cf-checklist-item-title">{template.descricao}</h3>
+                      </div>
+
+                      {template.instrucao ? (
+                        <p className="cf-checklist-item-text">{template.instrucao}</p>
+                      ) : null}
+                    </div>
+
+                    <div className="cf-checklist-status-grid">
+                      <button
+                        type="button"
+                        className={`cf-checklist-status ${current === "OK" ? "is-ok" : ""}`}
+                        onClick={() => setStatus(template.id, "OK")}
+                      >
+                        OK
+                      </button>
+
+                      <button
+                        type="button"
+                        className={`cf-checklist-status ${current === "NOK" ? "is-nok" : ""}`}
+                        onClick={() => setStatus(template.id, "NOK")}
+                      >
+                        NOK
+                      </button>
+
+                      <button
+                        type="button"
+                        className={`cf-checklist-status ${current === "NA" ? "is-na" : ""}`}
+                        onClick={() => setStatus(template.id, "NA")}
+                      >
+                        N/A
+                      </button>
+                    </div>
+
+                    {current === "NOK" ? (
+                      <div className="cf-checklist-item-note">
+                        <label className="cf-field-label">Observação do item</label>
+                        <input
+                          value={itens[template.id]?.observacao ?? ""}
+                          onChange={(e) => setObs(template.id, e.target.value)}
+                          placeholder="Descreva a não conformidade"
+                          className="cf-mobile-input"
+                        />
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          {error ? <div className="cf-alert cf-alert-error">{error}</div> : null}
+
+          {!signatureStepOpen ? (
+            <button
+              type="button"
+              className="cf-button cf-button-primary cf-checklist-primary-action"
+              onClick={abrirAssinatura}
+              disabled={!canOpenSignature}
+            >
+              <span className="cf-mobile-button-icon">
+                <SignatureMiniIcon />
+              </span>
+              Assinar checklist
+            </button>
+          ) : (
+            <section className="cf-checklist-section cf-checklist-signature-section">
+              <div className="cf-checklist-section-head">
+                <div className="cf-checklist-section-icon">
+                  <SignatureIcon />
+                </div>
+
+                <div>
+                  <h2 className="cf-checklist-section-title">Assinatura do operador</h2>
+                  <p className="cf-checklist-section-text">A assinatura habilita o envio do checklist.</p>
+                </div>
+              </div>
+
+              <div className="cf-checklist-signature-shell">
+                <SignatureCanvas
+                  ref={signatureRef}
+                  penColor="#1F2937"
+                  onEnd={() => capturarAssinatura()}
+                  canvasProps={{
+                    width: 800,
+                    height: 180,
+                    style: {
+                      width: "100%",
+                      height: 180,
+                      display: "block",
+                      borderRadius: 18,
+                      background: "#FFFFFF",
+                    },
+                  }}
+                />
+              </div>
+
+              {!assinaturaBase64 ? (
+                <div className="cf-checklist-signature-note">Faça a assinatura para liberar o envio.</div>
+              ) : null}
+
+              <div className="cf-checklist-signature-actions">
+                <button type="button" className="cf-button cf-button-secondary" onClick={limparAssinatura}>
+                  Limpar assinatura
+                </button>
+
+                <button
+                  type="button"
+                  className="cf-button cf-button-primary"
+                  onClick={() => void submit()}
+                  disabled={!assinaturaBase64}
+                >
+                  <span className="cf-mobile-button-icon">
+                    <ArrowRightIcon />
+                  </span>
+                  Enviar checklist
+                </button>
+              </div>
+            </section>
+          )}
+        </section>
       </div>
     </div>
-  </div>
-) : null}
-    </div>
+  );
+}
+
+function QrIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="3" width="6" height="6" rx="1.2" stroke="white" strokeWidth="2" />
+      <rect x="15" y="3" width="6" height="6" rx="1.2" stroke="white" strokeWidth="2" />
+      <rect x="3" y="15" width="6" height="6" rx="1.2" stroke="white" strokeWidth="2" />
+      <path d="M15 15H18V18H15V15Z" fill="white" />
+      <path d="M18 18H21V21H18V18Z" fill="white" />
+      <path d="M18 12H21V15H18V12Z" fill="white" />
+      <path d="M12 18H15V21H12V18Z" fill="white" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.5" stroke="#0057B8" strokeWidth="2" />
+      <path d="M5 19C6.3 16.7 8.73 15.5 12 15.5C15.27 15.5 17.7 16.7 19 19" stroke="#0057B8" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function UserIconLight() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="8" r="3.5" stroke="white" strokeWidth="2" />
+      <path d="M5 19C6.3 16.7 8.73 15.5 12 15.5C15.27 15.5 17.7 16.7 19 19" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function NotesIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="5" y="4" width="14" height="16" rx="2" stroke="#0057B8" strokeWidth="2" />
+      <path d="M9 9H15" stroke="#0057B8" strokeWidth="2" strokeLinecap="round" />
+      <path d="M9 13H15" stroke="#0057B8" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function NotesIconLight() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="5" y="4" width="14" height="16" rx="2" stroke="white" strokeWidth="2" />
+      <path d="M9 9H15" stroke="white" strokeWidth="2" strokeLinecap="round" />
+      <path d="M9 13H15" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SignatureIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 16C6 13.5 7.2 13.5 8.5 16C9.3 17.4 10.2 17.4 11 16L13 12.5C13.8 11.1 14.7 11.1 15.5 12.5L16.5 14.3C17.3 15.7 18.2 15.7 19 14.3L20 12.5"
+        stroke="#0057B8"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M4 20H20" stroke="#0057B8" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SignatureMiniIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 16C6 13.5 7.2 13.5 8.5 16C9.3 17.4 10.2 17.4 11 16L13 12.5C13.8 11.1 14.7 11.1 15.5 12.5L16.5 14.3C17.3 15.7 18.2 15.7 19 14.3L20 12.5"
+        stroke="white"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M4 20H20" stroke="white" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 12.5L9.5 17L19 7.5" stroke="#1E7E34" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ArrowRightIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 12H19" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M13 6L19 12L13 18" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
