@@ -3,9 +3,8 @@ using System.ComponentModel.DataAnnotations;
 namespace Checklist.Api.Models;
 
 public class Checklist
-{
-    [Required]
-    public Guid Id { get; set; }
+{  
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     public Guid SetorId { get; set; }
     public Setor Setor { get; set; } = null!;
