@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useNavigate, useParams } from "react-router-dom";
-import { api } from "../api";
+import { ApiError, api } from "../api";
 import "../styles/global.css";
 import type {
   ChecklistDto,
@@ -79,9 +79,9 @@ export function ChecklistPage() {
         setEquipamento(eq);
         setTemplates(tpl);
         setItens(initial);
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (!mounted) return;
-        setError(e.message ?? "Falha ao carregar checklist.");
+        setError(extractErrorMessage(e, "Falha ao carregar checklist."));
       } finally {
         if (!mounted) return;
         setLoading(false);
@@ -257,8 +257,8 @@ export function ChecklistPage() {
       window.setTimeout(() => {
         navigate("/?sucesso=1");
       }, 1500);
-    } catch (e: any) {
-      setError(e.message ?? "Falha ao enviar checklist.");
+    } catch (e: unknown) {
+      setError(extractErrorMessage(e, "Falha ao enviar checklist."));
     }
   }
 
@@ -613,6 +613,24 @@ export function ChecklistPage() {
       </div>
     </div>
   );
+}
+
+function extractErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof ApiError) {
+    if (error.status >= 500) return fallback;
+
+    try {
+      const parsed = JSON.parse(error.body) as { message?: string };
+      if (parsed.message) return parsed.message;
+    } catch {
+      if (error.body && error.body.length < 220) return error.body;
+    }
+
+    return error.message;
+  }
+
+  if (error instanceof Error) return error.message;
+  return fallback;
 }
 
 function QrIcon() {

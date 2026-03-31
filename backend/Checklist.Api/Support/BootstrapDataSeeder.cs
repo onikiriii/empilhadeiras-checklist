@@ -12,63 +12,71 @@ public class BootstrapDataSeeder
     private readonly AppDbContext _db;
     private readonly PasswordHashingService _passwordHashingService;
     private readonly SupervisorLoginGenerator _supervisorLoginGenerator;
+    private readonly ChecklistStandardCatalogService _checklistStandardCatalogService;
     private readonly AuthOptions _authOptions;
 
     public BootstrapDataSeeder(
         AppDbContext db,
         PasswordHashingService passwordHashingService,
         SupervisorLoginGenerator supervisorLoginGenerator,
+        ChecklistStandardCatalogService checklistStandardCatalogService,
         IOptions<AuthOptions> authOptions)
     {
         _db = db;
         _passwordHashingService = passwordHashingService;
         _supervisorLoginGenerator = supervisorLoginGenerator;
+        _checklistStandardCatalogService = checklistStandardCatalogService;
         _authOptions = authOptions.Value;
     }
 
     public async Task SeedAsync()
     {
-        if (await _db.UsuariosSupervisores.AnyAsync())
-            return;
-
-        var bootstrap = _authOptions.BootstrapSupervisor;
-        if (string.IsNullOrWhiteSpace(bootstrap.Nome) ||
-            string.IsNullOrWhiteSpace(bootstrap.Sobrenome) ||
-            string.IsNullOrWhiteSpace(bootstrap.Senha))
-            return;
-
-        var setor = await _db.Setores.FirstOrDefaultAsync(x => x.Nome == bootstrap.SetorNome);
-
-        if (setor is null)
+        if (!await _db.UsuariosSupervisores.AnyAsync())
         {
-            setor = new Setor
+            var bootstrap = _authOptions.BootstrapSupervisor;
+            if (string.IsNullOrWhiteSpace(bootstrap.Nome) ||
+                string.IsNullOrWhiteSpace(bootstrap.Sobrenome) ||
+                string.IsNullOrWhiteSpace(bootstrap.Senha))
             {
-                Nome = bootstrap.SetorNome,
-                Descricao = "Setor administrativo inicial criado automaticamente para o login master.",
+                await _checklistStandardCatalogService.EnsureDefaultsForAllSetoresAsync();
+                return;
+            }
+
+            var setor = await _db.Setores.FirstOrDefaultAsync(x => x.Nome == bootstrap.SetorNome);
+
+            if (setor is null)
+            {
+                setor = new Setor
+                {
+                    Nome = bootstrap.SetorNome,
+                    Descricao = "Setor administrativo inicial criado automaticamente para o login master.",
+                    Ativo = true
+                };
+
+                _db.Setores.Add(setor);
+                await _db.SaveChangesAsync();
+            }
+
+            var login = await _supervisorLoginGenerator.GenerateUniqueLoginAsync(bootstrap.Nome, bootstrap.Sobrenome);
+
+            var supervisor = new UsuarioSupervisor
+            {
+                Nome = bootstrap.Nome.Trim(),
+                Sobrenome = bootstrap.Sobrenome.Trim(),
+                Login = login,
+                Email = string.IsNullOrWhiteSpace(bootstrap.Email) ? null : bootstrap.Email.Trim().ToLowerInvariant(),
+                Ramal = string.IsNullOrWhiteSpace(bootstrap.Ramal) ? null : bootstrap.Ramal.Trim(),
+                SenhaHash = _passwordHashingService.HashPassword(bootstrap.Senha),
+                ForceChangePassword = bootstrap.ForceChangePassword,
+                IsMaster = bootstrap.IsMaster,
+                SetorId = setor.Id,
                 Ativo = true
             };
 
-            _db.Setores.Add(setor);
+            _db.UsuariosSupervisores.Add(supervisor);
             await _db.SaveChangesAsync();
         }
 
-        var login = await _supervisorLoginGenerator.GenerateUniqueLoginAsync(bootstrap.Nome, bootstrap.Sobrenome);
-
-        var supervisor = new UsuarioSupervisor
-        {
-            Nome = bootstrap.Nome.Trim(),
-            Sobrenome = bootstrap.Sobrenome.Trim(),
-            Login = login,
-            Email = string.IsNullOrWhiteSpace(bootstrap.Email) ? null : bootstrap.Email.Trim().ToLowerInvariant(),
-            Ramal = string.IsNullOrWhiteSpace(bootstrap.Ramal) ? null : bootstrap.Ramal.Trim(),
-            SenhaHash = _passwordHashingService.HashPassword(bootstrap.Senha),
-            ForceChangePassword = bootstrap.ForceChangePassword,
-            IsMaster = bootstrap.IsMaster,
-            SetorId = setor.Id,
-            Ativo = true
-        };
-
-        _db.UsuariosSupervisores.Add(supervisor);
-        await _db.SaveChangesAsync();
+        await _checklistStandardCatalogService.EnsureDefaultsForAllSetoresAsync();
     }
 }

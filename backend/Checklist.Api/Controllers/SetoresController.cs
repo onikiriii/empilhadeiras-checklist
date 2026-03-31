@@ -1,6 +1,7 @@
 using Checklist.Api.Data;
 using Checklist.Api.Dtos;
 using Checklist.Api.Models;
+using Checklist.Api.Support;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,12 @@ namespace Checklist.Api.Controllers;
 public class SetoresController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly ChecklistStandardCatalogService _checklistStandardCatalogService;
 
-    public SetoresController(AppDbContext db)
+    public SetoresController(AppDbContext db, ChecklistStandardCatalogService checklistStandardCatalogService)
     {
         _db = db;
+        _checklistStandardCatalogService = checklistStandardCatalogService;
     }
 
     [HttpGet]
@@ -63,6 +66,7 @@ public class SetoresController : ControllerBase
 
         _db.Setores.Add(setor);
         await _db.SaveChangesAsync();
+        await _checklistStandardCatalogService.EnsureDefaultsForSetorAsync(setor.Id);
 
         return Created("", ToDto(setor, 0, 0, 0));
     }

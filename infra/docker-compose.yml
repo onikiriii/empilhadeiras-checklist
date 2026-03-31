@@ -1,14 +1,43 @@
 services:
-  db:
-    image: postgres:16
-    container_name: checklist_db
+  mysql:
+    image: mysql:8.4
+    container_name: checkflow_mysql
+    restart: unless-stopped
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
     environment:
-      POSTGRES_DB: checklist
-      POSTGRES_USER: checklist
-      POSTGRES_PASSWORD: checklist
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-CheckFlow}
+      MYSQL_USER: ${MYSQL_USER:-checkflow}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-checkflow}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
     ports:
-      - "5433:5432"
+      - "${MYSQL_HOST_PORT:-3307}:3306"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - checkflow_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$$MYSQL_USER -p$$MYSQL_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  api:
+    build:
+      context: ../backend/Checklist.Api
+      dockerfile: Dockerfile
+    container_name: checkflow_api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__Default: Server=mysql;Port=3306;Database=${MYSQL_DATABASE:-CheckFlow};User ID=${MYSQL_USER:-checkflow};Password=${MYSQL_PASSWORD:-checkflow};SslMode=Disabled;AllowPublicKeyRetrieval=True;
+    ports:
+      - "${API_HOST_PORT:-5204}:8080"
+
 volumes:
-  pgdata:
+  checkflow_mysql_data:

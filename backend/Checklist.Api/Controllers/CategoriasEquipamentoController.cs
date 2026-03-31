@@ -34,7 +34,7 @@ public class CategoriasEquipamentoController : ControllerBase
 
         var lista = await q
             .OrderBy(x => x.Nome)
-            .Select(x => new CategoriaEquipamentoDto(x.Id, x.SetorId, x.Nome, x.Ativa))
+            .Select(x => new CategoriaEquipamentoDto(x.Id, x.SetorId, x.Nome, x.Ativa, x.ModeloFechamentoMensal))
             .ToListAsync();
 
         return Ok(lista);
@@ -55,6 +55,7 @@ public class CategoriasEquipamentoController : ControllerBase
         {
             SetorId = setorId.Value,
             Nome = nome,
+            ModeloFechamentoMensal = req.ModeloFechamentoMensal,
             Ativa = req.Ativa
         };
 
@@ -69,7 +70,7 @@ public class CategoriasEquipamentoController : ControllerBase
             return Conflict(new { message = $"Já existe categoria '{nome}'." });
         }
 
-        return Created("", new CategoriaEquipamentoDto(entity.Id, entity.SetorId, entity.Nome, entity.Ativa));
+        return Created("", new CategoriaEquipamentoDto(entity.Id, entity.SetorId, entity.Nome, entity.Ativa, entity.ModeloFechamentoMensal));
     }
 
     [HttpPut("{id:guid}")]
@@ -88,6 +89,7 @@ public class CategoriasEquipamentoController : ControllerBase
             return BadRequest(new { message = "Nome é obrigatório." });
 
         entity.Nome = nome;
+        entity.ModeloFechamentoMensal = req.ModeloFechamentoMensal;
         entity.Ativa = req.Ativa;
 
         try
@@ -99,7 +101,7 @@ public class CategoriasEquipamentoController : ControllerBase
             return Conflict(new { message = $"Já existe categoria '{nome}'." });
         }
 
-        return Ok(new CategoriaEquipamentoDto(entity.Id, entity.SetorId, entity.Nome, entity.Ativa));
+        return Ok(new CategoriaEquipamentoDto(entity.Id, entity.SetorId, entity.Nome, entity.Ativa, entity.ModeloFechamentoMensal));
     }
 
     [HttpDelete("{id:guid}")]

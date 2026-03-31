@@ -59,8 +59,37 @@ async function http<T>(path: string, options?: RequestInit): Promise<T> {
   try {
     return JSON.parse(text) as T;
   } catch {
-    throw new Error(`Resposta não é JSON em ${url}: ${text}`);
+    throw new Error(`Resposta nao e JSON em ${url}: ${text}`);
   }
+}
+
+async function httpBlob(path: string, options?: RequestInit): Promise<Blob> {
+  const url = `${configuredBaseUrl}${path}`;
+  const session = getStoredAuthSession();
+
+  const headers = new Headers(options?.headers ?? {});
+
+  if (session?.accessToken) {
+    headers.set("Authorization", `Bearer ${session.accessToken}`);
+  }
+
+  const res = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+
+    if (res.status === 401) {
+      clearStoredAuthSession();
+      window.dispatchEvent(new Event(AUTH_UNAUTHORIZED_EVENT));
+    }
+
+    throw new ApiError(`HTTP ${res.status} em ${url}: ${text}`, res.status, text);
+  }
+
+  return await res.blob();
 }
 
 export const api = {
@@ -74,4 +103,6 @@ export const api = {
 
   delete: <T>(path: string) =>
     http<T>(path, { method: "DELETE" }),
+
+  getBlob: (path: string) => httpBlob(path),
 };

@@ -6,6 +6,7 @@ import "../../styles/global.css";
 const supervisorMenuItems = [
   { path: "/admin/dashboard", label: "Dashboard", icon: <DashboardIcon /> },
   { path: "/admin/checklists", label: "Checklists", icon: <ChecklistIcon /> },
+  { path: "/admin/fechamentos-mensais", label: "Fechamentos", icon: <CalendarIcon /> },
   { path: "/admin/categorias", label: "Categorias", icon: <FolderIcon /> },
   { path: "/admin/templates", label: "Templates", icon: <TemplateIcon /> },
   { path: "/admin/operadores", label: "Operadores", icon: <WorkerIcon /> },
@@ -18,8 +19,9 @@ const masterMenuItems = [
 ];
 
 const pageTitles: Record<string, string> = {
-  "/admin/dashboard": "Visão Geral",
+  "/admin/dashboard": "Visao Geral",
   "/admin/checklists": "Checklists",
+  "/admin/fechamentos-mensais": "Fechamentos Mensais",
   "/admin/categorias": "Categorias",
   "/admin/templates": "Templates",
   "/admin/operadores": "Operadores",
@@ -205,7 +207,7 @@ export default function AdminLayout() {
                   ...(menuOpen ? styles.avatarButtonActive : {}),
                 }}
                 onClick={() => setMenuOpen((current) => !current)}
-                aria-label="Abrir menu do usuário"
+                aria-label="Abrir menu do usuario"
               >
                 <div style={styles.avatar}>{userInitial}</div>
               </button>
@@ -229,7 +231,7 @@ export default function AdminLayout() {
                       <span style={styles.userMenuValue}>{isMaster ? "Master" : "Supervisor"}</span>
                     </div>
                     <div style={styles.userMenuRow}>
-                      <span style={styles.userMenuLabel}>Escopo</span>
+                      <span style={styles.userMenuLabel}>Setor</span>
                       <span style={styles.userMenuValue}>{userScope}</span>
                     </div>
                   </div>
@@ -284,6 +286,20 @@ function ChecklistIcon() {
       <path d="M9 9H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <path d="M9 13H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <path d="M9 17H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="4" y="5" width="16" height="15" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path d="M8 3V7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M16 3V7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M4 10H20" stroke="currentColor" strokeWidth="2" />
+      <path d="M9 14H9.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M12 14H12.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M15 14H15.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
   );
 }

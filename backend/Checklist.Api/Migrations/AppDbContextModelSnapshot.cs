@@ -31,6 +31,9 @@ namespace Checklist.Api.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("ModeloFechamentoMensal")
+                        .HasColumnType("int");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -41,10 +44,8 @@ namespace Checklist.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Nome")
+                    b.HasIndex("SetorId", "Nome")
                         .IsUnique();
-
-                    b.HasIndex("SetorId");
 
                     b.ToTable("CategoriasEquipamento");
                 });
@@ -53,8 +54,7 @@ namespace Checklist.Api.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasMaxLength(32)
-                        .HasColumnType("char(32)");
+                        .HasColumnType("char(36)");
 
                     b.Property<bool>("Aprovado")
                         .HasColumnType("tinyint(1)");
@@ -69,6 +69,9 @@ namespace Checklist.Api.Migrations
                         .HasColumnType("datetime(6)");
 
                     b.Property<DateTime>("DataRealizacao")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("DataReferencia")
                         .HasColumnType("datetime(6)");
 
                     b.Property<Guid>("EquipamentoId")
@@ -93,7 +96,8 @@ namespace Checklist.Api.Migrations
 
                     b.HasIndex("OperadorId");
 
-                    b.HasIndex("SetorId");
+                    b.HasIndex("SetorId", "EquipamentoId", "DataReferencia")
+                        .IsUnique();
 
                     b.ToTable("Checklists");
                 });
@@ -138,7 +142,7 @@ namespace Checklist.Api.Migrations
                         .HasColumnType("char(36)");
 
                     b.Property<Guid>("ChecklistId")
-                        .HasColumnType("char(32)");
+                        .HasColumnType("char(36)");
 
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime(6)");
@@ -249,6 +253,101 @@ namespace Checklist.Api.Migrations
                     b.HasIndex("SetorId");
 
                     b.ToTable("Equipamentos");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.FechamentoChecklistMensal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Ano")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EquipamentoId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("FechadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("FechadoPorSupervisorId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("HashPdfSha256")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<int>("Mes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NomeArquivoPdf")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("varchar(180)");
+
+                    b.Property<byte[]>("PdfConteudo")
+                        .IsRequired()
+                        .HasColumnType("longblob");
+
+                    b.Property<int>("QuantidadeChecklists")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SetorId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TemplateNome")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<string>("TemplateVersao")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EquipamentoId");
+
+                    b.HasIndex("FechadoPorSupervisorId");
+
+                    b.HasIndex("SetorId", "EquipamentoId", "Ano", "Mes")
+                        .IsUnique();
+
+                    b.ToTable("FechamentosChecklistMensais");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.FechamentoChecklistMensalChecklist", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("ChecklistId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("FechamentoChecklistMensalId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChecklistId");
+
+                    b.HasIndex("FechamentoChecklistMensalId", "ChecklistId")
+                        .IsUnique();
+
+                    b.ToTable("FechamentosChecklistMensaisChecklists");
                 });
 
             modelBuilder.Entity("Checklist.Api.Models.Operador", b =>
@@ -483,6 +582,52 @@ namespace Checklist.Api.Migrations
                     b.Navigation("Setor");
                 });
 
+            modelBuilder.Entity("Checklist.Api.Models.FechamentoChecklistMensal", b =>
+                {
+                    b.HasOne("Checklist.Api.Models.Equipamento", "Equipamento")
+                        .WithMany()
+                        .HasForeignKey("EquipamentoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Checklist.Api.Models.UsuarioSupervisor", "FechadoPorSupervisor")
+                        .WithMany()
+                        .HasForeignKey("FechadoPorSupervisorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Checklist.Api.Models.Setor", "Setor")
+                        .WithMany()
+                        .HasForeignKey("SetorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Equipamento");
+
+                    b.Navigation("FechadoPorSupervisor");
+
+                    b.Navigation("Setor");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.FechamentoChecklistMensalChecklist", b =>
+                {
+                    b.HasOne("Checklist.Api.Models.Checklist", "Checklist")
+                        .WithMany()
+                        .HasForeignKey("ChecklistId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Checklist.Api.Models.FechamentoChecklistMensal", "FechamentoChecklistMensal")
+                        .WithMany("Checklists")
+                        .HasForeignKey("FechamentoChecklistMensalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Checklist");
+
+                    b.Navigation("FechamentoChecklistMensal");
+                });
+
             modelBuilder.Entity("Checklist.Api.Models.Operador", b =>
                 {
                     b.HasOne("Checklist.Api.Models.Setor", "Setor")
@@ -515,6 +660,11 @@ namespace Checklist.Api.Migrations
             modelBuilder.Entity("Checklist.Api.Models.Checklist", b =>
                 {
                     b.Navigation("Itens");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.FechamentoChecklistMensal", b =>
+                {
+                    b.Navigation("Checklists");
                 });
 #pragma warning restore 612, 618
         }

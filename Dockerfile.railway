@@ -1,0 +1,26 @@
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libreoffice-calc libreoffice-core libreoffice-writer fonts-dejavu-core fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+EXPOSE 8080
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY backend/Checklist.Api/Checklist.Api.csproj backend/Checklist.Api/
+RUN dotnet restore backend/Checklist.Api/Checklist.Api.csproj
+
+COPY backend/Checklist.Api/. backend/Checklist.Api/
+
+WORKDIR /src/backend/Checklist.Api
+RUN dotnet publish Checklist.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+
+ENTRYPOINT ["dotnet", "Checklist.Api.dll"]

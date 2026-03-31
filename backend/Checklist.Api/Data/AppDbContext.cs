@@ -1,5 +1,6 @@
 using Checklist.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using ChecklistModel = Checklist.Api.Models.Checklist;
 
 namespace Checklist.Api.Data;
 
@@ -12,10 +13,12 @@ public class AppDbContext : DbContext
     public DbSet<Operador> Operadores { get; set; } = null!;
     public DbSet<CategoriaEquipamento> CategoriasEquipamento { get; set; } = null!;
     public DbSet<ChecklistItemTemplate> ChecklistItensTemplate { get; set; } = null!;
-    public DbSet<Models.Checklist> Checklists { get; set; } = null!;
+    public DbSet<ChecklistModel> Checklists { get; set; } = null!;
     public DbSet<ChecklistItem> ChecklistItens { get; set; } = null!;
     public DbSet<Setor> Setores { get; set; } = null!;
     public DbSet<UsuarioSupervisor> UsuariosSupervisores { get; set; } = null!;
+    public DbSet<FechamentoChecklistMensal> FechamentosChecklistMensais { get; set; } = null!;
+    public DbSet<FechamentoChecklistMensalChecklist> FechamentosChecklistMensaisChecklists { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -61,7 +64,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CategoriaEquipamento>(e =>
         {
             e.Property(x => x.Nome).HasMaxLength(80).IsRequired();
-            e.HasIndex(x => x.Nome).IsUnique();
+            e.Property(x => x.ModeloFechamentoMensal).HasConversion<int>();
+            e.HasIndex(x => new { x.SetorId, x.Nome }).IsUnique();
 
             e.HasOne(x => x.Setor)
                 .WithMany()
@@ -102,11 +106,13 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<Models.Checklist>(e =>
+        modelBuilder.Entity<ChecklistModel>(e =>
         {
             e.Property(x => x.ObservacoesGerais).HasMaxLength(1000);
             e.Property(x => x.AssinaturaOperadorBase64);
             e.Property(x => x.AssinadoEm);
+
+            e.HasIndex(x => new { x.SetorId, x.EquipamentoId, x.DataReferencia }).IsUnique();
 
             e.HasOne(x => x.Setor)
                 .WithMany()
@@ -138,6 +144,48 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Template)
                 .WithMany()
                 .HasForeignKey(x => x.TemplateId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FechamentoChecklistMensal>(e =>
+        {
+            e.Property(x => x.TemplateNome).HasMaxLength(120).IsRequired();
+            e.Property(x => x.TemplateVersao).HasMaxLength(40).IsRequired();
+            e.Property(x => x.NomeArquivoPdf).HasMaxLength(180).IsRequired();
+            e.Property(x => x.HashPdfSha256).HasMaxLength(128).IsRequired();
+            e.Property(x => x.SnapshotJson).HasColumnType("longtext").IsRequired();
+            e.Property(x => x.PdfConteudo).HasColumnType("longblob").IsRequired();
+
+            e.HasIndex(x => new { x.SetorId, x.EquipamentoId, x.Ano, x.Mes }).IsUnique();
+
+            e.HasOne(x => x.Setor)
+                .WithMany()
+                .HasForeignKey(x => x.SetorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.Equipamento)
+                .WithMany()
+                .HasForeignKey(x => x.EquipamentoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.FechadoPorSupervisor)
+                .WithMany()
+                .HasForeignKey(x => x.FechadoPorSupervisorId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<FechamentoChecklistMensalChecklist>(e =>
+        {
+            e.HasIndex(x => new { x.FechamentoChecklistMensalId, x.ChecklistId }).IsUnique();
+
+            e.HasOne(x => x.FechamentoChecklistMensal)
+                .WithMany(x => x.Checklists)
+                .HasForeignKey(x => x.FechamentoChecklistMensalId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.Checklist)
+                .WithMany()
+                .HasForeignKey(x => x.ChecklistId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }

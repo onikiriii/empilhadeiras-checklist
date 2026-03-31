@@ -8,6 +8,7 @@ public class CategoriaEquipamento
     public Setor Setor { get; set; } = null!;
 
     public string Nome { get; set; } = "";
+    public FechamentoMensalModelo ModeloFechamentoMensal { get; set; } = FechamentoMensalModelo.Nenhum;
     public bool Ativa { get; set; } = true;
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
 
