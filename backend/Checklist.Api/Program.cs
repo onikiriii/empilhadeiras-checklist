@@ -28,26 +28,25 @@ builder.Services
         o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
+var frontendUrl = builder.Configuration["Frontend:Url"]
+                  ?? Environment.GetEnvironmentVariable("FRONTEND_URL");
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("frontend", policy =>
     {
-        if (builder.Environment.IsDevelopment())
+        var allowedOrigins = new List<string>
         {
-            policy.WithOrigins("http://localhost:5173", "http://localhost:5174")
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials();
-        }
-        else
-        {
-            policy.SetIsOriginAllowed(origin =>
-                    origin.Contains("vercel.app") ||
-                    origin.Contains("localhost"))
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .AllowCredentials();
-        }
+            "http://localhost:5173",
+            "http://localhost:5174"
+        };
+
+        if (!string.IsNullOrWhiteSpace(frontendUrl))
+            allowedOrigins.Add(frontendUrl);
+
+        policy.WithOrigins(allowedOrigins.ToArray())
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
 });
 
@@ -56,7 +55,8 @@ var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? builder.Configuration.GetConnectionString("AppDbConnectionString")
     ?? Environment.GetEnvironmentVariable("MYSQL_URL")
     ?? Environment.GetEnvironmentVariable("DATABASE_URL")
-    ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+    ?? Environment.GetEnvironmentVariable("ConnectionStrings__Default");
 
 if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException("ConnectionStrings:Default precisa estar configurado para o MySQL.");
@@ -67,6 +67,7 @@ if (connectionString.StartsWith("mysql://", StringComparison.OrdinalIgnoreCase))
     var userInfo = uri.UserInfo.Split(':');
     var database = uri.AbsolutePath.Trim('/');
     var portNumber = uri.IsDefaultPort ? 3306 : uri.Port;
+
     connectionString =
         $"Server={uri.Host};Port={portNumber};Database={database};User ID={Uri.UnescapeDataString(userInfo[0])};Password={Uri.UnescapeDataString(userInfo[1])};SslMode=Disabled;AllowPublicKeyRetrieval=True;";
 }
@@ -118,6 +119,7 @@ builder.Services.AddAuthorization(options =>
             CurrentSupervisorClaims.GetIsMaster(context.User));
     });
 });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
