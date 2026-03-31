@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 namespace Checklist.Api.Models;
 
 public class Checklist
-{
+{  
     public Guid Id { get; set; } = Guid.NewGuid();
 
     public Guid SetorId { get; set; }
@@ -16,7 +16,8 @@ public class Checklist
     public Operador Operador { get; set; } = null!;
 
     public DateTime DataRealizacao { get; set; } = DateTime.UtcNow;
-    public bool Aprovado { get; set; }  // geral (todos os itens OK)
+    public DateTime DataReferencia { get; set; } = DateTime.UtcNow.Date;
+    public bool Aprovado { get; set; }
     public string? ObservacoesGerais { get; set; }
 
     public string? AssinaturaOperadorBase64 { get; set; }
@@ -31,9 +32,9 @@ public class Checklist
 
 public enum ChecklistStatus
 {
-    Pendente,       // acabou de ser enviado
-    Aprovado,       // todos os itens OK
-    Reprovado,      // algum item NOK → vai para manutenção
-    EmManutencao,   // equipe de manutenção está atuando
-    Concluido       // manutenção finalizada
+    Pendente,
+    Aprovado,
+    Reprovado,
+    EmManutencao,
+    Concluido
 }

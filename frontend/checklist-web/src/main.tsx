@@ -22,6 +22,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import CategoriasPage from "./pages/admin/CategoriasPage";
 import ChecklistsPage from "./pages/admin/ChecklistsPage";
 import EquipamentosPage from "./pages/admin/EquipamentosPage";
+import FechamentosMensaisPage from "./pages/admin/FechamentosMensaisPage";
 import OperadoresPage from "./pages/admin/OperadoresPage";
 import SetoresPage from "./pages/admin/SetoresPage";
 import SupervisoresPage from "./pages/admin/SupervisoresPage";
@@ -87,6 +88,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               element={(
                 <RequireSectorSupervisor>
                   <ChecklistsPage />
+                </RequireSectorSupervisor>
+              )}
+            />
+            <Route
+              path="fechamentos-mensais"
+              element={(
+                <RequireSectorSupervisor>
+                  <FechamentosMensaisPage />
                 </RequireSectorSupervisor>
               )}
             />

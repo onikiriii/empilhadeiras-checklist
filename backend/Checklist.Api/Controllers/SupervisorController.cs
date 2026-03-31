@@ -2,6 +2,7 @@ using Checklist.Api.Data;
 using Checklist.Api.Dtos;
 using Checklist.Api.Models;
 using Checklist.Api.Security;
+using Checklist.Api.Support;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,8 +27,7 @@ public class SupervisorController : ControllerBase
         if (setorId is null)
             return Unauthorized(new { message = "Supervisor sem setor associado." });
 
-        var hojeInicio = DateTime.Today;
-        var hojeFim = hojeInicio.AddDays(1);
+        var hoje = BusinessDate.TodayKeyUtc();
 
         var lista = await _db.Equipamentos
             .AsNoTracking()
@@ -36,7 +36,7 @@ public class SupervisorController : ControllerBase
             .Select(e => new EquipamentoStatusDto(
                 e.Codigo,
                 e.Descricao,
-                _db.Checklists.Any(c => c.EquipamentoId == e.Id && c.SetorId == setorId.Value && c.DataRealizacao >= hojeInicio && c.DataRealizacao < hojeFim)
+                _db.Checklists.Any(c => c.EquipamentoId == e.Id && c.SetorId == setorId.Value && c.DataReferencia == hoje)
             ))
             .ToListAsync();
 
@@ -50,26 +50,22 @@ public class SupervisorController : ControllerBase
         if (setorId is null)
             return Unauthorized(new { message = "Supervisor sem setor associado." });
 
-        codigo = (codigo ?? "").Trim().ToUpperInvariant();
-
-        var hojeInicio = DateTime.Today;
-        var hojeFim = hojeInicio.AddDays(1);
+        var hoje = BusinessDate.TodayKeyUtc();
+        codigo = (codigo ?? string.Empty).Trim().ToUpperInvariant();
 
         var checklist = await _db.Checklists
             .AsNoTracking()
             .Include(c => c.Equipamento)
             .Include(c => c.Operador)
             .Include(c => c.Itens)
-            .Where(c => c.SetorId == setorId.Value &&
-                        c.Equipamento.Codigo == codigo &&
-                        c.DataRealizacao >= hojeInicio &&
-                        c.DataRealizacao < hojeFim)
+            .Where(c => c.SetorId == setorId.Value && c.Equipamento.Codigo == codigo && c.DataReferencia == hoje)
+            .OrderByDescending(c => c.DataRealizacao)
             .FirstOrDefaultAsync();
 
         if (checklist is null)
             return NotFound(new { message = "Nenhum checklist encontrado para hoje neste equipamento." });
 
-        var dto = new ChecklistDto(
+        return Ok(new ChecklistDto(
             checklist.Id,
             checklist.SetorId,
             checklist.EquipamentoId,
@@ -90,9 +86,7 @@ public class SupervisorController : ControllerBase
                 i.Status,
                 i.Observacao
             )).ToList()
-        );
-
-        return Ok(dto);
+        ));
     }
 
     [HttpGet("dashboard")]
@@ -102,7 +96,7 @@ public class SupervisorController : ControllerBase
         if (setorId is null)
             return Unauthorized(new { message = "Supervisor sem setor associado." });
 
-        var hoje = DateTime.UtcNow.Date;
+        var hoje = BusinessDate.TodayKeyUtc();
 
         var equipamentos = await _db.Equipamentos
             .Where(e => e.Ativa && e.SetorId == setorId.Value)
@@ -114,7 +108,7 @@ public class SupervisorController : ControllerBase
         foreach (var eq in equipamentos)
         {
             var checklistHoje = await _db.Checklists
-                .Where(c => c.SetorId == setorId.Value && c.EquipamentoId == eq.Id && c.DataRealizacao.Date == hoje)
+                .Where(c => c.SetorId == setorId.Value && c.EquipamentoId == eq.Id && c.DataReferencia == hoje)
                 .Include(c => c.Itens)
                 .FirstOrDefaultAsync();
 
@@ -159,15 +153,15 @@ public class SupervisorController : ControllerBase
         if (!string.IsNullOrEmpty(dataInicio))
         {
             var inicio = DateTime.Parse(dataInicio);
-            var inicioUtc = DateTime.SpecifyKind(inicio, DateTimeKind.Utc);
-            query = query.Where(c => c.DataRealizacao >= inicioUtc);
+            var inicioUtc = new DateTime(inicio.Year, inicio.Month, inicio.Day, 0, 0, 0, DateTimeKind.Utc);
+            query = query.Where(c => c.DataReferencia >= inicioUtc);
         }
 
         if (!string.IsNullOrEmpty(dataFim))
         {
             var fim = DateTime.Parse(dataFim);
-            var fimUtc = DateTime.SpecifyKind(fim.AddDays(1), DateTimeKind.Utc);
-            query = query.Where(c => c.DataRealizacao < fimUtc);
+            var fimUtc = new DateTime(fim.Year, fim.Month, fim.Day, 0, 0, 0, DateTimeKind.Utc).AddDays(1);
+            query = query.Where(c => c.DataReferencia < fimUtc);
         }
 
         if (!string.IsNullOrEmpty(status))
@@ -198,7 +192,7 @@ public class SupervisorController : ControllerBase
                 Status = c.Aprovado ? "ok" : "nok",
                 TotalItens = c.Itens.Count,
                 ItensOk = c.Itens.Count(i => i.Status == ItemStatus.OK),
-                ItensNok = c.Itens.Count(i => i.Status == ItemStatus.NOK),
+                ItensNok = c.Itens.Count(i => i.Status == ItemStatus.NOK)
             })
             .ToListAsync();
 

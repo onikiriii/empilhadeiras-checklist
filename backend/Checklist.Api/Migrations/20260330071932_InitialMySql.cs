@@ -262,15 +262,10 @@ namespace Checklist.Api.Migrations
                 .Annotation("MySQL:Charset", "utf8mb4");
 
             migrationBuilder.CreateIndex(
-                name: "IX_CategoriasEquipamento_Nome",
+                name: "IX_CategoriasEquipamento_SetorId_Nome",
                 table: "CategoriasEquipamento",
-                column: "Nome",
+                columns: new[] { "SetorId", "Nome" },
                 unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_CategoriasEquipamento_SetorId",
-                table: "CategoriasEquipamento",
-                column: "SetorId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ChecklistItens_ChecklistId",

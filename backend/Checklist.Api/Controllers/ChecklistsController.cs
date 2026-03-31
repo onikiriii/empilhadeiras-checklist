@@ -2,9 +2,11 @@ using Checklist.Api.Data;
 using Checklist.Api.Dtos;
 using Checklist.Api.Models;
 using Checklist.Api.Security;
+using Checklist.Api.Support;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ChecklistModel = Checklist.Api.Models.Checklist;
 
 namespace Checklist.Api.Controllers;
 
@@ -21,32 +23,34 @@ public class ChecklistsController : ControllerBase
     public async Task<ActionResult<ChecklistDto>> Enviar([FromBody] EnviarChecklistRequest req)
     {
         if (req.EquipamentoId == Guid.Empty || req.OperadorId == Guid.Empty)
-            return BadRequest(new { message = "EquipamentoId e OperadorId são obrigatórios." });
+            return BadRequest(new { message = "EquipamentoId e OperadorId sao obrigatorios." });
 
         if (req.Itens.Count == 0)
             return BadRequest(new { message = "Checklist deve ter pelo menos um item." });
 
         if (string.IsNullOrWhiteSpace(req.AssinaturaOperadorBase64))
-            return BadRequest(new { message = "A assinatura do operador é obrigatória." });
+            return BadRequest(new { message = "A assinatura do operador e obrigatoria." });
+
+        var dataReferencia = BusinessDate.TodayKeyUtc();
 
         var equipamento = await _db.Equipamentos
             .AsNoTracking()
             .Include(e => e.Categoria)
             .FirstOrDefaultAsync(e => e.Id == req.EquipamentoId && e.Ativa);
         if (equipamento is null)
-            return BadRequest(new { message = "Equipamento inválido ou inativo." });
+            return BadRequest(new { message = "Equipamento invalido ou inativo." });
 
         var operador = await _db.Operadores
             .AsNoTracking()
             .FirstOrDefaultAsync(o => o.Id == req.OperadorId && o.Ativo);
         if (operador is null)
-            return BadRequest(new { message = "Operador inválido ou inativo." });
+            return BadRequest(new { message = "Operador invalido ou inativo." });
 
         if (operador.SetorId != equipamento.SetorId)
             return BadRequest(new { message = "Operador e equipamento precisam pertencer ao mesmo setor." });
 
         if (equipamento.Categoria.SetorId != equipamento.SetorId)
-            return BadRequest(new { message = "O equipamento está vinculado a uma categoria de outro setor." });
+            return BadRequest(new { message = "O equipamento esta vinculado a uma categoria de outro setor." });
 
         var templates = await _db.ChecklistItensTemplate
             .AsNoTracking()
@@ -55,17 +59,31 @@ public class ChecklistsController : ControllerBase
             .ToListAsync();
 
         if (templates.Count == 0)
-            return BadRequest(new { message = "Não há itens de checklist configurados para esta categoria." });
+            return BadRequest(new { message = "Nao ha itens de checklist configurados para esta categoria." });
 
         var templateIds = templates.Select(t => t.Id).ToHashSet();
         if (req.Itens.Any(i => !templateIds.Contains(i.TemplateId)))
-            return BadRequest(new { message = "Um ou mais itens não correspondem aos templates da categoria." });
+            return BadRequest(new { message = "Um ou mais itens nao correspondem aos templates da categoria." });
 
-        var checklist = new Checklist.Api.Models.Checklist
+        var proximaDataReferencia = dataReferencia.AddDays(1);
+
+        var checklistExistenteHoje = await _db.Checklists
+            .AsNoTracking()
+            .AnyAsync(c =>
+                c.SetorId == equipamento.SetorId &&
+                c.EquipamentoId == req.EquipamentoId &&
+                c.DataReferencia >= dataReferencia &&
+                c.DataReferencia < proximaDataReferencia);
+
+        if (checklistExistenteHoje)
+            return Conflict(new { message = "Este equipamento ja possui checklist registrado hoje." });
+
+        var checklist = new ChecklistModel
         {
             SetorId = equipamento.SetorId,
             EquipamentoId = req.EquipamentoId,
             OperadorId = req.OperadorId,
+            DataReferencia = dataReferencia,
             ObservacoesGerais = string.IsNullOrWhiteSpace(req.ObservacoesGerais) ? null : req.ObservacoesGerais.Trim(),
             AssinaturaOperadorBase64 = req.AssinaturaOperadorBase64.Trim(),
             AssinadoEm = DateTime.UtcNow,
@@ -75,7 +93,7 @@ public class ChecklistsController : ControllerBase
         foreach (var itemReq in req.Itens)
         {
             var template = templates.First(t => t.Id == itemReq.TemplateId);
-            var item = new ChecklistItem
+            checklist.Itens.Add(new ChecklistItem
             {
                 TemplateId = itemReq.TemplateId,
                 Ordem = template.Ordem,
@@ -83,20 +101,29 @@ public class ChecklistsController : ControllerBase
                 Instrucao = template.Instrucao,
                 Status = itemReq.Status,
                 Observacao = string.IsNullOrWhiteSpace(itemReq.Observacao) ? null : itemReq.Observacao.Trim()
-            };
-            checklist.Itens.Add(item);
+            });
         }
 
         checklist.Aprovado = checklist.Itens.All(i => i.Status == ItemStatus.OK || i.Status == ItemStatus.NA);
-
         if (!checklist.Aprovado)
             checklist.Status = ChecklistStatus.Reprovado;
 
         _db.Checklists.Add(checklist);
-        await _db.SaveChangesAsync();
 
-        var dto = CreateChecklistDto(checklist, equipamento.Codigo, operador.Nome);
-        return Created("", dto);
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (DatabaseErrorDetector.IsDuplicateKey(ex))
+        {
+            return Conflict(new { message = "Este equipamento ja possui checklist registrado hoje." });
+        }
+        catch (DbUpdateException)
+        {
+            return StatusCode(500, new { message = "Nao foi possivel salvar o checklist. Verifique a configuracao do banco e tente novamente." });
+        }
+
+        return Created(string.Empty, CreateChecklistDto(checklist, equipamento.Codigo, operador.Nome));
     }
 
     [Authorize(Policy = "SectorSupervisorReady")]
@@ -114,12 +141,12 @@ public class ChecklistsController : ControllerBase
             .FirstOrDefaultAsync(c => c.Id == id && c.SetorId == setorId.Value);
 
         if (checklist is null)
-            return NotFound(new { message = "Checklist não encontrado." });
+            return NotFound(new { message = "Checklist nao encontrado." });
 
         return Ok(CreateChecklistDto(checklist, checklist.Equipamento.Codigo, checklist.Operador.Nome));
     }
 
-    private static ChecklistDto CreateChecklistDto(Checklist.Api.Models.Checklist checklist, string equipamentoCodigo, string operadorNome)
+    private static ChecklistDto CreateChecklistDto(ChecklistModel checklist, string equipamentoCodigo, string operadorNome)
     {
         return new ChecklistDto(
             checklist.Id,
