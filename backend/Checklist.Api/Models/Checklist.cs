@@ -4,9 +4,7 @@ namespace Checklist.Api.Models;
 
 public class Checklist
 {
-    [Required]
-    [MaxLength(32)]
-    public Guid Id { get; set; }
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     public Guid SetorId { get; set; }
     public Setor Setor { get; set; } = null!;
