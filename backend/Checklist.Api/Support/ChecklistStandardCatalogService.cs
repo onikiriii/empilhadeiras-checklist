@@ -1,6 +1,7 @@
 using Checklist.Api.Data;
 using Checklist.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using MySql.Data.MySqlClient;
 
 namespace Checklist.Api.Support;
 
@@ -45,7 +46,25 @@ public class ChecklistStandardCatalogService
 
                 _db.CategoriasEquipamento.Add(categoria);
                 categorias.Add(categoria);
-                await _db.SaveChangesAsync();
+
+                try
+                {
+                    await _db.SaveChangesAsync();
+                }
+                catch (DbUpdateException ex) when (ex.InnerException is MySqlException { Number: 1062 })
+                {
+                    _db.Entry(categoria).State = EntityState.Detached;
+                    categorias.Remove(categoria);
+
+                    categoria = await _db.CategoriasEquipamento
+                        .Include(x => x.ChecklistItensTemplate)
+                        .FirstOrDefaultAsync(x => x.SetorId == setorId && x.Nome == definition.Nome);
+
+                    if (categoria is null)
+                        throw;
+
+                    categorias.Add(categoria);
+                }
             }
             else if (categoria.ModeloFechamentoMensal == FechamentoMensalModelo.Nenhum)
             {
