@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
 using System.Xml.Linq;
@@ -43,8 +42,7 @@ public class ChecklistMonthlyPdfService
 
             FillWorkbook(workbookPath, snapshot);
 
-            var pdfPath = ConvertWorkbookToPdf(workbookPath, workDirectory);
-            return File.ReadAllBytes(pdfPath);
+            return File.ReadAllBytes(workbookPath);
         }
         finally
         {
@@ -332,7 +330,7 @@ public class ChecklistMonthlyPdfService
             .ToList();
 
         if (snapshot.Comentarios.Count > MaxComments)
-            comments[^1] = $"{comments[^1]}{Environment.NewLine}[Comentarios adicionais omitidos no PDF oficial.]";
+            comments[^1] = $"{comments[^1]}{Environment.NewLine}[Comentarios adicionais omitidos na planilha oficial.]";
 
         for (var index = 0; index < comments.Count; index++)
         {
@@ -386,57 +384,6 @@ public class ChecklistMonthlyPdfService
             var rowNumber = CommentsRowStart + (index * CommentsRowStep);
             SetCellTextIfExists(worksheet, $"B{rowNumber}", string.Empty);
         }
-    }
-
-    private static string ConvertWorkbookToPdf(string workbookPath, string outputDirectory)
-    {
-        var sofficePath = FindLibreOfficePath();
-        if (sofficePath is null)
-            throw new InvalidOperationException("LibreOffice nao foi encontrado para converter o fechamento mensal em PDF.");
-
-        var profileDirectory = Path.Combine(outputDirectory, "lo-profile");
-        Directory.CreateDirectory(profileDirectory);
-        var profileUri = new Uri(profileDirectory.EndsWith(Path.DirectorySeparatorChar)
-            ? profileDirectory
-            : profileDirectory + Path.DirectorySeparatorChar);
-
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = sofficePath,
-                Arguments = $"-env:UserInstallation={profileUri.AbsoluteUri} --headless --convert-to pdf:calc_pdf_Export --outdir \"{outputDirectory}\" \"{workbookPath}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-
-        process.Start();
-        process.WaitForExit();
-
-        var standardOutput = process.StandardOutput.ReadToEnd();
-        var standardError = process.StandardError.ReadToEnd();
-        var pdfPath = Path.ChangeExtension(workbookPath, ".pdf");
-
-        if (process.ExitCode != 0 || !File.Exists(pdfPath))
-            throw new InvalidOperationException($"Falha ao converter o fechamento mensal para PDF. {standardOutput} {standardError}".Trim());
-
-        return pdfPath;
-    }
-
-    private static string? FindLibreOfficePath()
-    {
-        string[] candidates =
-        [
-            @"C:\Program Files\LibreOffice\program\soffice.com",
-            @"C:\Program Files\LibreOffice\program\soffice.exe",
-            @"C:\Program Files (x86)\LibreOffice\program\soffice.com",
-            @"C:\Program Files (x86)\LibreOffice\program\soffice.exe"
-        ];
-
-        return candidates.FirstOrDefault(File.Exists);
     }
 
     private static XDocument LoadXml(ZipArchive archive, string entryPath)

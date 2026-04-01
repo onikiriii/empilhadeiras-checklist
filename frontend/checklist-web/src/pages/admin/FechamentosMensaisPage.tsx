@@ -16,7 +16,7 @@ type ClosingSummary = {
   mes: number;
   quantidadeChecklists: number;
   templateVersao: string;
-  nomeArquivoPdf: string;
+  nomeArquivo: string;
   fechadoEm: string;
   fechadoPorNome: string;
 };
@@ -184,7 +184,7 @@ export default function FechamentosMensaisPage() {
         mes: preview.mes,
       });
 
-      setSuccess(`Fechamento criado: ${resumo.nomeArquivoPdf}`);
+      setSuccess(`Fechamento criado: ${resumo.nomeArquivo}`);
       await loadSummaries();
       await handlePreview();
     } catch (e) {
@@ -194,9 +194,9 @@ export default function FechamentosMensaisPage() {
     }
   }
 
-  async function downloadPdf(id: string, fileName: string) {
+  async function downloadArquivo(id: string, fileName: string) {
     try {
-      const blob = await api.getBlob(`/api/supervisor/fechamentos-mensais/${id}/pdf`);
+      const blob = await api.getBlob(`/api/supervisor/fechamentos-mensais/${id}/arquivo`);
       const url = window.URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -206,7 +206,7 @@ export default function FechamentosMensaisPage() {
       anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch (e) {
-      setError(extractMessage(e, "Erro ao baixar o PDF oficial."));
+      setError(extractMessage(e, "Erro ao baixar a planilha oficial."));
     }
   }
 
@@ -215,7 +215,7 @@ export default function FechamentosMensaisPage() {
       <div className="cf-page-header">
         <div>
           <h1 className="cf-page-title">Fechamentos mensais</h1>
-          <p className="cf-page-subtitle">Feche a competencia por equipamento e gere o PDF oficial do mes.</p>
+          <p className="cf-page-subtitle">Feche a competencia por equipamento e gere a planilha oficial do mes.</p>
         </div>
       </div>
 
@@ -262,13 +262,13 @@ export default function FechamentosMensaisPage() {
               type="button"
               className="cf-button cf-button-secondary"
               onClick={() =>
-                void downloadPdf(
+                void downloadArquivo(
                   preview.fechamentoId!,
-                  `CheckFlow_${preview.equipamentoCodigo}_${preview.ano}-${String(preview.mes).padStart(2, "0")}.pdf`,
+                  `CheckFlow_${preview.equipamentoCodigo}_${preview.ano}-${String(preview.mes).padStart(2, "0")}.xlsx`,
                 )
               }
             >
-              Baixar PDF oficial
+              Baixar planilha oficial
             </button>
           ) : null}
         </div>
@@ -582,9 +582,9 @@ export default function FechamentosMensaisPage() {
                           <button
                             type="button"
                             className="cf-button cf-button-secondary cf-button-small"
-                            onClick={() => void downloadPdf(resumo.id, resumo.nomeArquivoPdf)}
+                            onClick={() => void downloadArquivo(resumo.id, resumo.nomeArquivo)}
                           >
-                            PDF oficial
+                            Planilha oficial
                           </button>
                         </div>
                       </td>

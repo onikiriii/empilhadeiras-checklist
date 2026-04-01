@@ -79,9 +79,9 @@ public class ChecklistMonthlyClosingService
             return existing;
 
         var snapshot = await BuildLiveSnapshotAsync(setorId, equipamentoId, ano, mes);
-        var pdfBytes = _pdfService.Generate(snapshot);
-        var hash = Convert.ToHexString(SHA256.HashData(pdfBytes));
-        var fileName = $"CheckFlow_{snapshot.EquipamentoCodigo}_{ano}-{mes:00}.pdf";
+        var workbookBytes = _pdfService.Generate(snapshot);
+        var hash = Convert.ToHexString(SHA256.HashData(workbookBytes));
+        var fileName = $"CheckFlow_{snapshot.EquipamentoCodigo}_{ano}-{mes:00}.xlsx";
 
         var fechamento = new FechamentoChecklistMensal
         {
@@ -100,7 +100,7 @@ public class ChecklistMonthlyClosingService
             SnapshotJson = JsonSerializer.Serialize(snapshot),
             NomeArquivoPdf = fileName,
             HashPdfSha256 = hash,
-            PdfConteudo = pdfBytes,
+            PdfConteudo = workbookBytes,
             QuantidadeChecklists = snapshot.TotalChecklistsConsiderados,
             FechadoEm = DateTime.UtcNow,
             CriadoEm = DateTime.UtcNow
