@@ -11,7 +11,7 @@ public record FechamentoChecklistMensalResumoDto(
     int Mes,
     int QuantidadeChecklists,
     string TemplateVersao,
-    string NomeArquivoPdf,
+    string NomeArquivo,
     DateTime FechadoEm,
     string FechadoPorNome
 );

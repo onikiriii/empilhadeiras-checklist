@@ -89,8 +89,8 @@ public class FechamentosChecklistMensaisController : ControllerBase
         }
     }
 
-    [HttpGet("{id:guid}/pdf")]
-    public async Task<IActionResult> DownloadPdf(Guid id)
+    [HttpGet("{id:guid}/arquivo")]
+    public async Task<IActionResult> DownloadArquivo(Guid id)
     {
         var setorId = CurrentSupervisorClaims.GetSetorId(User);
         if (setorId is null)
@@ -100,6 +100,9 @@ public class FechamentosChecklistMensaisController : ControllerBase
         if (fechamento is null)
             return NotFound(new { message = "Fechamento mensal nao encontrado." });
 
-        return File(fechamento.PdfConteudo, "application/pdf", fechamento.NomeArquivoPdf);
+        return File(
+            fechamento.PdfConteudo,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            fechamento.NomeArquivoPdf);
     }
 }
