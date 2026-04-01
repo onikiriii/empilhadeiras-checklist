@@ -160,7 +160,9 @@ public class ChecklistsController : ControllerBase
             checklist.ObservacoesGerais,
             checklist.Status,
             checklist.AssinaturaOperadorBase64,
-            checklist.Itens.Select(i => new ChecklistItemDto(
+            checklist.Itens
+                .OrderBy(i => i.Ordem)
+                .Select(i => new ChecklistItemDto(
                 i.Id,
                 i.TemplateId,
                 i.Ordem,
