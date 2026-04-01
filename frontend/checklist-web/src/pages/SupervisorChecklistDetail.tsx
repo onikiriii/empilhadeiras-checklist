@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 
 type ChecklistItem = {
@@ -32,6 +32,7 @@ export default function SupervisorChecklistDetail() {
   const printAreaRef = useRef<HTMLDivElement | null>(null);
 
   const [checklist, setChecklist] = useState<ChecklistDetail | null>(null);
+  const [signatureSrc, setSignatureSrc] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -44,17 +45,43 @@ export default function SupervisorChecklistDetail() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    const source = checklist?.assinaturaOperadorBase64;
+    if (!source) {
+      setSignatureSrc(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    trimSignatureDataUrl(source)
+      .then((trimmed) => {
+        if (!cancelled) {
+          setSignatureSrc(trimmed);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSignatureSrc(source);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [checklist?.assinaturaOperadorBase64]);
+
   const resumo = useMemo(() => {
     if (!checklist) {
       return { totalItens: 0, totalOk: 0, totalNok: 0, totalNa: 0 };
     }
 
-    const totalItens = checklist.itens.length;
-    const totalOk = checklist.itens.filter((i) => i.status === "OK").length;
-    const totalNok = checklist.itens.filter((i) => i.status === "NOK").length;
-    const totalNa = checklist.itens.filter((i) => i.status === "NA").length;
-
-    return { totalItens, totalOk, totalNok, totalNa };
+    return {
+      totalItens: checklist.itens.length,
+      totalOk: checklist.itens.filter((item) => item.status === "OK").length,
+      totalNok: checklist.itens.filter((item) => item.status === "NOK").length,
+      totalNa: checklist.itens.filter((item) => item.status === "NA").length,
+    };
   }, [checklist]);
 
   function handlePrint() {
@@ -64,7 +91,7 @@ export default function SupervisorChecklistDetail() {
   if (loading) {
     return (
       <div style={styles.page}>
-        <div style={styles.loadingCard}>Carregando checklist...</div>
+        <div style={styles.feedbackCard}>Carregando checklist...</div>
       </div>
     );
   }
@@ -72,7 +99,7 @@ export default function SupervisorChecklistDetail() {
   if (error) {
     return (
       <div style={styles.page}>
-        <div style={styles.errorCard}>{error}</div>
+        <div style={{ ...styles.feedbackCard, ...styles.errorCard }}>{error}</div>
       </div>
     );
   }
@@ -80,7 +107,7 @@ export default function SupervisorChecklistDetail() {
   if (!checklist) {
     return (
       <div style={styles.page}>
-        <div style={styles.errorCard}>Checklist não encontrado.</div>
+        <div style={{ ...styles.feedbackCard, ...styles.errorCard }}>Checklist nao encontrado.</div>
       </div>
     );
   }
@@ -90,29 +117,16 @@ export default function SupervisorChecklistDetail() {
       <style>{printStyles}</style>
 
       <div style={styles.page}>
-        <div style={styles.topBarBlue} className="no-print">
-          <div style={styles.topBarBlueInner}>
-            <div style={styles.brandBlock}>
-              <div style={styles.logoSlot}>
+        <div style={styles.container}>
+          <div style={styles.commandBar} className="no-print">
+            <div style={styles.commandBrand}>
+              <div style={styles.commandBrandLogo}>
                 <QrIcon />
               </div>
-
               <div>
-                <div style={styles.brandName}>CheckFlow</div>
-                <div style={styles.brandSubtitle}>Relatório de checklist</div>
+                <div style={styles.commandBarEyebrow}>CheckFlow</div>
+                <h1 style={styles.commandBarTitle}>Checklist concluido</h1>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div style={styles.container}>
-          <div style={styles.headerRow} className="no-print">
-            <div>
-              <div style={styles.breadcrumb}>Dashboard / Checklists</div>
-              <h1 style={styles.pageTitle}>Detalhes do checklist</h1>
-              <p style={styles.pageSubtitle}>
-                Visualização completa da inspeção realizada.
-              </p>
             </div>
 
             <div style={styles.headerActions}>
@@ -129,179 +143,151 @@ export default function SupervisorChecklistDetail() {
             </div>
           </div>
 
-          <div ref={printAreaRef} className="print-area">
-            <section style={styles.heroCard}>
-              <div style={styles.heroHeader}>
-                <div>
-                  <div style={styles.sectionEyebrow}>Relatório</div>
-                  <div style={styles.heroTitle}>{checklist.equipamentoCodigo}</div>
-                  <div style={styles.heroSubtitle}>
-                    Checklist operacional registrado no sistema
+          <div ref={printAreaRef} className="print-area document-sheet" style={styles.documentShell}>
+            <section style={styles.documentHeader}>
+              <div style={styles.documentHeadingRow}>
+                <div style={styles.documentBrandBlock}>
+                  <div style={styles.documentHeaderLogo}>
+                    <QrIcon />
+                  </div>
+                  <div>
+                    <div style={styles.documentKicker}>CheckFlow</div>
+                    <h2 style={styles.documentTitle}>Checklist concluido</h2>
+                    <div style={styles.documentType}>{checklist.equipamentoCodigo}</div>
                   </div>
                 </div>
 
-                <div>
-                  <span
-                    style={{
-                      ...styles.statusPill,
-                      ...(checklist.aprovado ? styles.statusPillSuccess : styles.statusPillDanger),
-                    }}
-                  >
-                    {checklist.aprovado ? "Aprovado" : "Reprovado"}
-                  </span>
+                <div style={styles.documentIssuedBlock}>
+                  <div style={styles.documentIssuedLabel}>Emitido em</div>
+                  <div style={styles.documentIssuedValue}>{formatDateTime(checklist.dataRealizacao)}</div>
                 </div>
-              </div>
-
-              <div style={styles.infoGrid}>
-                <div style={styles.infoCard}>
-                  <span style={styles.infoLabel}>Equipamento</span>
-                  <strong style={styles.infoValue}>{checklist.equipamentoCodigo}</strong>
-                </div>
-
-                <div style={styles.infoCard}>
-                  <span style={styles.infoLabel}>Operador</span>
-                  <strong style={styles.infoValue}>{checklist.operadorNome}</strong>
-                </div>
-
-                <div style={styles.infoCard}>
-                  <span style={styles.infoLabel}>Data / Hora</span>
-                  <strong style={styles.infoValue}>
-                    {new Date(checklist.dataRealizacao).toLocaleString("pt-BR")}
-                  </strong>
-                </div>
-
-                <div style={styles.infoCard}>
-                  <span style={styles.infoLabel}>Status do fluxo</span>
-                  <strong style={styles.infoValue}>{checklist.status}</strong>
-                </div>
-              </div>
-
-              {checklist.observacoesGerais ? (
-                <div style={styles.generalNotesCard}>
-                  <span style={styles.infoLabel}>Observações gerais</span>
-                  <div style={styles.generalNotesText}>{checklist.observacoesGerais}</div>
-                </div>
-              ) : null}
-            </section>
-
-            <section style={styles.metricsGrid}>
-              <div style={styles.metricCard}>
-                <div style={styles.metricNumberOk}>{resumo.totalOk}</div>
-                <div style={styles.metricLabel}>Itens OK</div>
-              </div>
-
-              <div style={styles.metricCard}>
-                <div style={styles.metricNumberNok}>{resumo.totalNok}</div>
-                <div style={styles.metricLabel}>Itens NOK</div>
-              </div>
-
-              <div style={styles.metricCard}>
-                <div style={styles.metricNumberNa}>{resumo.totalNa}</div>
-                <div style={styles.metricLabel}>Itens N/A</div>
-              </div>
-
-              <div style={styles.metricCard}>
-                <div style={styles.metricNumberTotal}>{resumo.totalItens}</div>
-                <div style={styles.metricLabel}>Total de itens</div>
               </div>
             </section>
 
-            {checklist.assinaturaOperadorBase64 ? (
-              <section style={styles.sectionCard}>
-                <div style={styles.sectionHeader}>
-                  <div style={styles.sectionHeaderLeft}>
-                    <div style={styles.sectionIconBox}>
-                      <SignatureIcon />
-                    </div>
-                    <div>
-                      <h2 style={styles.sectionTitle}>Assinatura do operador</h2>
-                      <p style={styles.sectionSubtitle}>
-                        Rúbrica registrada no envio do checklist
-                      </p>
-                    </div>
+            <section style={styles.documentSection}>
+              <div style={styles.documentBand}>Dados gerais</div>
+              <div
+                style={{
+                  ...styles.documentInfoGrid,
+                  ...(checklist.assinaturaOperadorBase64 ? styles.documentInfoGridWithSignature : {}),
+                }}
+              >
+                <div style={styles.documentInfoCell}>
+                  <div style={styles.documentInfoLabel}>Equipamento</div>
+                  <div style={styles.documentInfoValue}>{checklist.equipamentoCodigo}</div>
+                </div>
+                <div style={{ ...styles.documentInfoCell, ...styles.documentInfoCellNarrow }}>
+                  <div style={styles.documentInfoLabel}>Operador</div>
+                  <div style={styles.documentInfoValue}>{checklist.operadorNome}</div>
+                </div>
+                {checklist.assinaturaOperadorBase64 ? (
+                  <div style={styles.documentInfoSignatureCell}>
+                    <div style={styles.documentInfoSignatureLabel}>Rubrica</div>
+                    <img
+                      src={signatureSrc ?? checklist.assinaturaOperadorBase64}
+                      alt="Assinatura do operador"
+                      style={styles.documentInfoSignatureImage}
+                    />
+                  </div>
+                ) : null}
+                <div style={styles.documentInfoCell}>
+                  <div style={styles.documentInfoLabel}>Data e hora</div>
+                  <div style={styles.documentInfoValue}>{formatDateTime(checklist.dataRealizacao)}</div>
+                </div>
+                <div style={{ ...styles.documentInfoCell, ...styles.documentInfoCellNarrow }}>
+                  <div style={styles.documentInfoLabel}>Status</div>
+                  <div style={styles.documentInfoValue}>
+                    {checklist.aprovado ? "Aprovado" : "Reprovado"} / {checklist.status}
                   </div>
                 </div>
+              </div>
+            </section>
 
-                <div style={styles.signatureCard}>
-                  <img
-                    src={checklist.assinaturaOperadorBase64}
-                    alt="Assinatura do operador"
-                    style={styles.signatureImage}
-                  />
+            <section style={styles.documentSection}>
+              <div style={styles.documentBand}>Resumo</div>
+              <div style={styles.documentSummaryGrid}>
+                <div style={styles.documentSummaryCell}>
+                  <span style={styles.documentSummaryLabel}>Itens OK</span>
+                  <strong style={{ ...styles.documentSummaryValue, color: "#067647" }}>{resumo.totalOk}</strong>
                 </div>
+
+                <div style={styles.documentSummaryCell}>
+                  <span style={styles.documentSummaryLabel}>Itens NOK</span>
+                  <strong style={{ ...styles.documentSummaryValue, color: "#B42318" }}>{resumo.totalNok}</strong>
+                </div>
+
+                <div style={styles.documentSummaryCell}>
+                  <span style={styles.documentSummaryLabel}>Itens N/A</span>
+                  <strong style={{ ...styles.documentSummaryValue, color: "#1D4ED8" }}>{resumo.totalNa}</strong>
+                </div>
+
+                <div style={styles.documentSummaryCell}>
+                  <span style={styles.documentSummaryLabel}>Total de itens</span>
+                  <strong style={{ ...styles.documentSummaryValue, color: "#0F172A" }}>{resumo.totalItens}</strong>
+                </div>
+              </div>
+            </section>
+
+            {checklist.observacoesGerais ? (
+              <section style={styles.documentSection}>
+                <div style={styles.documentBand}>Observacoes gerais</div>
+                <div style={styles.documentNotesBox}>{checklist.observacoesGerais}</div>
               </section>
             ) : null}
 
-            <section style={styles.sectionCard}>
-              <div style={styles.sectionHeader}>
-                <div style={styles.sectionHeaderLeft}>
-                  <div style={styles.sectionIconBox}>
-                    <ChecklistIcon />
-                  </div>
-                  <div>
-                    <h2 style={styles.sectionTitle}>Itens do checklist</h2>
-                    <p style={styles.sectionSubtitle}>
-                      {resumo.totalItens} {resumo.totalItens === 1 ? "item listado" : "itens listados"}
-                    </p>
-                  </div>
-                </div>
+            <section style={styles.documentSection}>
+              <div style={styles.documentBand}>Itens inspecionados</div>
+              <div style={styles.documentTableMeta}>
+                {resumo.totalItens} {resumo.totalItens === 1 ? "item listado" : "itens listados"}
               </div>
 
-              <div style={styles.itemsWrap}>
-                {checklist.itens.map((item, idx) => {
-                  const isOk = item.status === "OK";
-                  const isNok = item.status === "NOK";
-                  const isNa = item.status === "NA";
+              <div style={styles.documentTableWrap}>
+                <table style={styles.documentTable}>
+                  <thead>
+                    <tr>
+                      <th style={styles.documentTableHeadCellSmall}>#</th>
+                      <th style={styles.documentTableHeadCell}>Item verificado</th>
+                      <th style={styles.documentTableHeadCellStatus}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {checklist.itens.map((item, idx) => {
+                      const statusStyle =
+                        item.status === "OK"
+                          ? styles.documentStatusCellOk
+                          : item.status === "NOK"
+                            ? styles.documentStatusCellNok
+                            : styles.documentStatusCellNa;
 
-                  return (
-                    <div
-                      key={item.id}
-                      style={{
-                        ...styles.itemCard,
-                        ...(isOk
-                          ? styles.itemCardOk
-                          : isNok
-                          ? styles.itemCardNok
-                          : styles.itemCardNa),
-                      }}
-                    >
-                      <div style={styles.itemTopRow}>
-                        <div style={styles.itemOrder}>{idx + 1}</div>
-
-                        <div style={{ flex: 1 }}>
-                          <h3 style={styles.itemTitle}>{item.descricao}</h3>
-
-                          {item.instrucao ? (
-                            <p style={styles.itemText}>
-                              <span style={styles.itemTextStrong}>Instrução:</span> {item.instrucao}
-                            </p>
-                          ) : null}
-
-                          {item.observacao ? (
-                            <p style={styles.itemText}>
-                              <span style={styles.itemTextStrong}>Observação:</span> {item.observacao}
-                            </p>
-                          ) : null}
-                        </div>
-
-                        <div
-                          style={{
-                            ...styles.statusBadge,
-                            ...(isOk
-                              ? styles.statusBadgeOk
-                              : isNok
-                              ? styles.statusBadgeNok
-                              : styles.statusBadgeNa),
-                          }}
-                        >
-                          {isOk ? "✓ OK" : isNok ? "✗ NOK" : "– N/A"}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      return (
+                        <tr key={item.id}>
+                          <td style={styles.documentTableCellOrder}>{idx + 1}</td>
+                          <td style={styles.documentTableCell}>
+                            <div style={styles.documentItemTitle}>{item.descricao}</div>
+                            {item.instrucao ? (
+                              <div style={styles.documentItemInstruction}>
+                                Instrucao: {item.instrucao}
+                              </div>
+                            ) : null}
+                            {item.observacao ? (
+                              <div style={styles.documentObservationBlock}>
+                                <span style={styles.documentObservationText}>{item.observacao}</span>
+                              </div>
+                            ) : null}
+                          </td>
+                          <td style={styles.documentTableCellStatus}>
+                            <span style={{ ...styles.documentStatusCell, ...statusStyle }}>
+                              {item.status === "OK" ? "Conforme" : item.status === "NOK" ? "Nao conforme" : "N/A"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </section>
+
           </div>
         </div>
       </div>
@@ -309,18 +295,91 @@ export default function SupervisorChecklistDetail() {
   );
 }
 
-function QrIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3" y="3" width="6" height="6" rx="1.2" stroke="white" strokeWidth="2" />
-      <rect x="15" y="3" width="6" height="6" rx="1.2" stroke="white" strokeWidth="2" />
-      <rect x="3" y="15" width="6" height="6" rx="1.2" stroke="white" strokeWidth="2" />
-      <path d="M15 15H18V18H15V15Z" fill="white" />
-      <path d="M18 18H21V21H18V18Z" fill="white" />
-      <path d="M18 12H21V15H18V12Z" fill="white" />
-      <path d="M12 18H15V21H12V18Z" fill="white" />
-    </svg>
-  );
+function trimSignatureDataUrl(dataUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth || image.width;
+      canvas.height = image.naturalHeight || image.height;
+
+      const context = canvas.getContext("2d");
+      if (!context) {
+        resolve(dataUrl);
+        return;
+      }
+
+      context.drawImage(image, 0, 0);
+
+      const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+      const whiteThreshold = 245;
+
+      let top = height;
+      let left = width;
+      let right = -1;
+      let bottom = -1;
+
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          const offset = (y * width + x) * 4;
+          const alpha = data[offset + 3];
+          const red = data[offset];
+          const green = data[offset + 1];
+          const blue = data[offset + 2];
+          const isInkPixel =
+            alpha > 0 && (red < whiteThreshold || green < whiteThreshold || blue < whiteThreshold);
+
+          if (!isInkPixel) {
+            continue;
+          }
+
+          if (x < left) left = x;
+          if (x > right) right = x;
+          if (y < top) top = y;
+          if (y > bottom) bottom = y;
+        }
+      }
+
+      if (right < left || bottom < top) {
+        resolve(dataUrl);
+        return;
+      }
+
+      const padding = 8;
+      const cropLeft = Math.max(0, left - padding);
+      const cropTop = Math.max(0, top - padding);
+      const cropWidth = Math.min(width - cropLeft, right - left + 1 + padding * 2);
+      const cropHeight = Math.min(height - cropTop, bottom - top + 1 + padding * 2);
+
+      const croppedCanvas = document.createElement("canvas");
+      croppedCanvas.width = cropWidth;
+      croppedCanvas.height = cropHeight;
+
+      const croppedContext = croppedCanvas.getContext("2d");
+      if (!croppedContext) {
+        resolve(dataUrl);
+        return;
+      }
+
+      croppedContext.drawImage(
+        canvas,
+        cropLeft,
+        cropTop,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        cropWidth,
+        cropHeight,
+      );
+
+      resolve(croppedCanvas.toDataURL("image/png"));
+    };
+
+    image.onerror = () => reject(new Error("Nao foi possivel processar a assinatura"));
+    image.src = dataUrl;
+  });
 }
 
 function PrintIcon() {
@@ -339,60 +398,67 @@ function PrintIcon() {
   );
 }
 
-function SignatureIcon() {
+function QrIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M4 16C6 13.5 7.2 13.5 8.5 16C9.3 17.4 10.2 17.4 11 16L13 12.5C13.8 11.1 14.7 11.1 15.5 12.5L16.5 14.3C17.3 15.7 18.2 15.7 19 14.3L20 12.5"
-        stroke="#0057B8"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M4 20H20" stroke="#0057B8" strokeWidth="2" strokeLinecap="round" />
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="3" width="6" height="6" rx="1.2" stroke="white" strokeWidth="2" />
+      <rect x="15" y="3" width="6" height="6" rx="1.2" stroke="white" strokeWidth="2" />
+      <rect x="3" y="15" width="6" height="6" rx="1.2" stroke="white" strokeWidth="2" />
+      <path d="M15 15H18V18H15V15Z" fill="white" />
+      <path d="M18 18H21V21H18V18Z" fill="white" />
+      <path d="M18 12H21V15H18V12Z" fill="white" />
+      <path d="M12 18H15V21H12V18Z" fill="white" />
     </svg>
   );
 }
 
-function ChecklistIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="5" y="4" width="14" height="16" rx="2" stroke="#0057B8" strokeWidth="2" />
-      <path d="M9 9H15" stroke="#0057B8" strokeWidth="2" strokeLinecap="round" />
-      <path d="M9 13H15" stroke="#0057B8" strokeWidth="2" strokeLinecap="round" />
-      <path d="M9 17H13" stroke="#0057B8" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("pt-BR");
 }
 
 const printStyles = `
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 6mm;
+  }
+
+  html,
   body {
     background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .no-print {
     display: none !important;
   }
 
-  .print-area {
+  .document-sheet {
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
     width: 100% !important;
+    max-width: none !important;
+    min-height: auto !important;
+    border-radius: 0 !important;
   }
 
+  .print-area,
   .print-area * {
     box-shadow: none !important;
     backdrop-filter: none !important;
   }
 
-  .print-area img {
-    max-width: 100% !important;
-  }
-
-  .print-area div,
   .print-area section,
-  .print-area article {
-    break-inside: avoid;
-    page-break-inside: avoid;
+  .print-area table,
+  .print-area tr,
+  .print-area td,
+  .print-area th {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }
 `;
@@ -400,82 +466,61 @@ const printStyles = `
 const styles: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100%",
-    background: "linear-gradient(180deg, #E9F0F7 0%, #EEF3F8 42%, #F5F7FA 100%)",
-    paddingBottom: 36,
-  },
-  topBarBlue: {
-    width: "100%",
-    background: "linear-gradient(90deg, #0057B8 0%, #0A6AD7 100%)",
-    borderBottom: "1px solid rgba(255,255,255,0.10)",
-    boxShadow: "0 14px 30px rgba(0,87,184,0.18)",
-    marginBottom: 24,
-  },
-  topBarBlueInner: {
-    maxWidth: 1320,
-    margin: "0 auto",
-    padding: "16px 28px",
-  },
-  brandBlock: {
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-  },
-  logoSlot: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    background: "rgba(255,255,255,0.14)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10)",
-    flexShrink: 0,
-  },
-  brandName: {
-    fontSize: 22,
-    fontWeight: 700,
-    color: "#FFFFFF",
-    lineHeight: 1.1,
-  },
-  brandSubtitle: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.82)",
-    marginTop: 4,
-    fontWeight: 400,
+    background: "#EEF2F6",
+    padding: "24px 0 36px",
   },
   container: {
     width: "100%",
-    maxWidth: 1320,
+    maxWidth: 860,
     margin: "0 auto",
     padding: "0 28px",
   },
-  headerRow: {
+  commandBar: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 16,
-    marginBottom: 24,
+    marginBottom: 18,
     flexWrap: "wrap",
+    padding: "0 2px",
   },
-  breadcrumb: {
+  commandBrand: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  },
+  commandBrandLogo: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "linear-gradient(135deg, #0057B8 0%, #0A6AD7 100%)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 10px 20px rgba(0, 87, 184, 0.18)",
+    flexShrink: 0,
+  },
+  commandBarEyebrow: {
     fontSize: 12,
-    color: "#667085",
+    color: "#526071",
     textTransform: "uppercase",
-    letterSpacing: 0.4,
-    fontWeight: 600,
-    marginBottom: 6,
-  },
-  pageTitle: {
-    margin: 0,
-    fontSize: 30,
+    letterSpacing: 0.8,
     fontWeight: 700,
-    color: "#1F2937",
+    marginBottom: 4,
   },
-  pageSubtitle: {
-    marginTop: 6,
+  commandBarTitle: {
+    margin: 0,
+    fontSize: 28,
+    fontWeight: 700,
+    color: "#1E293B",
+    letterSpacing: -0.2,
+  },
+  commandBarText: {
+    marginTop: 4,
     marginBottom: 0,
-    color: "#667085",
-    fontSize: 14.5,
+    color: "#64748B",
+    fontSize: 13.5,
     fontWeight: 400,
   },
   headerActions: {
@@ -483,304 +528,325 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 12,
     flexWrap: "wrap",
   },
-  heroCard: {
+  documentShell: {
     background: "#FFFFFF",
-    border: "1px solid #DEE7F1",
-    borderRadius: 24,
-    padding: 24,
-    boxShadow: "0 16px 30px rgba(16,24,40,0.07)",
-    marginBottom: 20,
+    border: "1px solid #CBD5E1",
+    borderRadius: 0,
+    boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
+    overflow: "hidden",
+    width: "100%",
+    maxWidth: 794,
+    margin: "0 auto",
   },
-  heroHeader: {
+  documentHeader: {
+    padding: "16px 18px 10px",
+    borderBottom: "1px solid #CBD5E1",
+  },
+  documentHeadingRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    gap: 16,
-    marginBottom: 20,
+    gap: 12,
     flexWrap: "wrap",
   },
-  sectionEyebrow: {
-    fontSize: 12,
-    color: "#667085",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-    fontWeight: 600,
-    marginBottom: 6,
-  },
-  heroTitle: {
-    fontSize: 26,
-    fontWeight: 700,
-    color: "#1F2937",
-    lineHeight: 1.15,
-  },
-  heroSubtitle: {
-    marginTop: 4,
-    fontSize: 14,
-    color: "#667085",
-    fontWeight: 400,
-  },
-  statusPill: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 112,
-    padding: "8px 14px",
-    borderRadius: 999,
-    fontSize: 13,
-    fontWeight: 700,
-  },
-  statusPillSuccess: {
-    background: "#EAF8EE",
-    color: "#1E7E34",
-    border: "1px solid #B7E1C0",
-  },
-  statusPillDanger: {
-    background: "#FFF1F0",
-    color: "#B42318",
-    border: "1px solid #F2B8B5",
-  },
-  infoGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-    gap: 14,
-  },
-  infoCard: {
-    background: "#F8FBFE",
-    border: "1px solid #E3EBF5",
-    borderRadius: 16,
-    padding: 16,
-  },
-  infoLabel: {
-    display: "block",
-    fontSize: 12,
-    color: "#667085",
-    marginBottom: 6,
-    fontWeight: 600,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  infoValue: {
-    fontSize: 15,
-    color: "#1F2937",
-    wordBreak: "break-word",
-    fontWeight: 600,
-  },
-  generalNotesCard: {
-    marginTop: 16,
-    background: "#F8FBFE",
-    border: "1px solid #E3EBF5",
-    borderRadius: 16,
-    padding: 16,
-  },
-  generalNotesText: {
-    fontSize: 15,
-    color: "#475467",
-    lineHeight: 1.6,
-    fontWeight: 400,
-  },
-  metricsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-    gap: 14,
-    marginBottom: 20,
-  },
-  metricCard: {
-    background: "#FFFFFF",
-    border: "1px solid #DEE7F1",
-    borderRadius: 20,
-    padding: 18,
-    textAlign: "center",
-    boxShadow: "0 10px 24px rgba(16,24,40,0.06)",
-  },
-  metricNumberOk: {
-    fontSize: 30,
-    fontWeight: 700,
-    color: "#1E7E34",
-    lineHeight: 1,
-  },
-  metricNumberNok: {
-    fontSize: 30,
-    fontWeight: 700,
-    color: "#B42318",
-    lineHeight: 1,
-  },
-  metricNumberNa: {
-    fontSize: 30,
-    fontWeight: 700,
-    color: "#1D4ED8",
-    lineHeight: 1,
-  },
-  metricNumberTotal: {
-    fontSize: 30,
-    fontWeight: 700,
-    color: "#0057B8",
-    lineHeight: 1,
-  },
-  metricLabel: {
-    marginTop: 8,
-    fontSize: 13,
-    color: "#667085",
-    fontWeight: 500,
-  },
-  sectionCard: {
-    background: "#FFFFFF",
-    border: "1px solid #DEE7F1",
-    borderRadius: 24,
-    padding: 22,
-    boxShadow: "0 10px 24px rgba(16,24,40,0.06)",
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    marginBottom: 16,
-  },
-  sectionHeaderLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-  },
-  sectionIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    background: "#EAF2FF",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  sectionTitle: {
-    margin: 0,
-    fontSize: 20,
-    fontWeight: 700,
-    color: "#1F2937",
-  },
-  sectionSubtitle: {
-    margin: "4px 0 0 0",
-    fontSize: 13.5,
-    color: "#667085",
-    fontWeight: 400,
-  },
-  signatureCard: {
-    background: "#FFFFFF",
-    border: "1px solid #E4E7EC",
-    borderRadius: 18,
-    padding: 16,
-  },
-  signatureImage: {
-    display: "block",
-    maxWidth: "100%",
-    width: 420,
-    height: 180,
-    objectFit: "contain",
-    background: "#FFFFFF",
-  },
-  itemsWrap: {
-    display: "grid",
-    gap: 14,
-  },
-  itemCard: {
-    borderRadius: 20,
-    padding: 18,
-    background: "#FFFFFF",
-    boxShadow: "0 8px 20px rgba(16,24,40,0.05)",
-    breakInside: "avoid",
-    pageBreakInside: "avoid",
-  },
-  itemCardOk: {
-    border: "1px solid #D4E9D8",
-    background: "#F8FCF9",
-  },
-  itemCardNok: {
-    border: "1px solid #F3D1CE",
-    background: "#FFF9F8",
-  },
-  itemCardNa: {
-    border: "1px solid #D7E5FB",
-    background: "#F8FBFF",
-  },
-  itemTopRow: {
+  documentBrandBlock: {
     display: "flex",
     alignItems: "flex-start",
-    gap: 14,
+    gap: 10,
   },
-  itemOrder: {
-    minWidth: 38,
+  documentHeaderLogo: {
+    width: 38,
     height: 38,
-    borderRadius: 12,
-    background: "#EAF2FF",
-    color: "#0057B8",
-    fontWeight: 700,
+    borderRadius: 8,
+    background: "linear-gradient(135deg, #0057B8 0%, #0A6AD7 100%)",
+    border: "1px solid rgba(255,255,255,0.08)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
+    boxShadow: "none",
+  },
+  documentKicker: {
+    fontSize: 11,
+    color: "#476C97",
+    textTransform: "uppercase",
+    letterSpacing: 0.9,
+    fontWeight: 700,
+    marginBottom: 2,
+  },
+  documentType: {
     fontSize: 15,
-    flexShrink: 0,
+    fontWeight: 500,
+    color: "#334155",
   },
-  itemTitle: {
-    margin: 0,
-    color: "#1F2937",
-    fontSize: 17,
+  documentTitle: {
+    margin: "0 0 3px 0",
+    fontSize: 22,
     fontWeight: 700,
-    lineHeight: 1.35,
+    color: "#0F172A",
+    letterSpacing: -0.2,
   },
-  itemText: {
-    marginTop: 8,
-    marginBottom: 0,
-    color: "#475467",
-    fontSize: 14,
-    lineHeight: 1.55,
-    fontWeight: 400,
+  documentIssuedBlock: {
+    textAlign: "right",
+    minWidth: 150,
   },
-  itemTextStrong: {
+  documentIssuedLabel: {
+    fontSize: 10.5,
+    color: "#64748B",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+  },
+  documentIssuedValue: {
+    marginTop: 4,
+    fontSize: 12.5,
+    color: "#0F172A",
     fontWeight: 600,
-    color: "#344054",
   },
-  statusBadge: {
-    minWidth: 92,
-    borderRadius: 14,
-    padding: "10px 12px",
-    textAlign: "center",
-    fontSize: 13.5,
+  documentSection: {
+    padding: "8px 18px 0",
+  },
+  documentBand: {
+    background: "#88c4f1",
+    border: "1px solid #88c4f1",
+    borderBottom: "none",
+    color: "#0F172A",
+    fontSize: 11.5,
     fontWeight: 700,
-    flexShrink: 0,
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+    padding: "6px 10px",
   },
-  statusBadgeOk: {
-    background: "#EAF8EE",
-    border: "1px solid #34A853",
-    color: "#1E7E34",
+  documentInfoGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    border: "1px solid #CBD5E1",
+    borderTop: "none",
   },
-  statusBadgeNok: {
-    background: "#FFF1F0",
-    border: "1px solid #D93025",
+  documentInfoGridWithSignature: {
+    gridTemplateColumns: "1.15fr 0.95fr 0.72fr",
+  },
+  documentInfoCell: {
+    padding: "9px 10px 10px",
+    borderRight: "1px solid #CBD5E1",
+    borderBottom: "1px solid #CBD5E1",
+    background: "#FFFFFF",
+  },
+  documentInfoCellNarrow: {
+    paddingLeft: 9,
+    paddingRight: 8,
+  },
+  documentInfoLabel: {
+    fontSize: 10.5,
+    color: "#475569",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  documentInfoValue: {
+    fontSize: 14,
+    color: "#0F172A",
+    fontWeight: 600,
+    lineHeight: 1.25,
+  },
+  documentInfoSignatureCell: {
+    gridRow: "1 / span 2",
+    gridColumn: 3,
+    borderBottom: "1px solid #CBD5E1",
+    background: "#FFFFFF",
+    padding: "0",
+    display: "flex",
+    flexDirection: "column",
+  },
+  documentInfoSignatureLabel: {
+    width: "100%",
+    padding: "6px 8px",
+    borderBottom: "1px solid #CBD5E1",
+    fontSize: 10.5,
+    color: "#475569",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    boxSizing: "border-box",
+  },
+  documentInfoSignatureImage: {
+    display: "block",
+    width: "100%",
+    maxWidth: 170,
+    maxHeight: 88,
+    height: "auto",
+    margin: "8px auto",
+    objectFit: "contain",
+    objectPosition: "center center",
+  },
+  documentSummaryGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+    border: "1px solid #CBD5E1",
+    borderTop: "none",
+    background: "#FFFFFF",
+  },
+  documentSummaryCell: {
+    padding: "9px 10px",
+    borderRight: "1px solid #CBD5E1",
+    display: "grid",
+    gap: 3,
+  },
+  documentSummaryLabel: {
+    fontSize: 10.5,
+    color: "#475569",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    fontWeight: 700,
+  },
+  documentSummaryValue: {
+    fontSize: 20,
+    fontWeight: 700,
+    lineHeight: 1,
+  },
+  documentNotesBox: {
+    padding: "10px 12px",
+    border: "1px solid #CBD5E1",
+    borderTop: "none",
+    background: "#FFFFFF",
+    fontSize: 12.5,
+    lineHeight: 1.45,
+    color: "#334155",
+    whiteSpace: "pre-wrap",
+  },
+  documentTableMeta: {
+    border: "1px solid #CBD5E1",
+    borderTop: "none",
+    borderBottom: "none",
+    padding: "6px 10px",
+    background: "#F8FAFC",
+    fontSize: 11,
+    color: "#475569",
+  },
+  documentTableWrap: {
+    border: "1px solid #CBD5E1",
+    borderTop: "none",
+    overflow: "hidden",
+  },
+  documentTable: {
+    width: "100%",
+    borderCollapse: "collapse",
+  },
+  documentTableHeadCellSmall: {
+    width: 58,
+    padding: "7px 8px",
+    borderBottom: "1px solid #CBD5E1",
+    background: "#F1F5F9",
+    color: "#334155",
+    fontSize: 10.5,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  documentTableHeadCell: {
+    padding: "7px 8px",
+    borderBottom: "1px solid #CBD5E1",
+    background: "#F1F5F9",
+    color: "#334155",
+    fontSize: 10.5,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    textAlign: "left",
+  },
+  documentTableHeadCellStatus: {
+    width: 156,
+    padding: "7px 8px",
+    borderBottom: "1px solid #CBD5E1",
+    background: "#F1F5F9",
+    color: "#334155",
+    fontSize: 10.5,
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    textAlign: "center",
+  },
+  documentTableCellOrder: {
+    padding: "7px 8px",
+    borderBottom: "1px solid #000000",
+    fontSize: 11.5,
+    color: "#334155",
+    fontWeight: 700,
+    verticalAlign: "top",
+    textAlign: "center",
+  },
+  documentTableCell: {
+    padding: "7px 8px",
+    borderBottom: "1px solid #000000",
+    fontSize: 12,
+    color: "#334155",
+    verticalAlign: "top",
+  },
+  documentTableCellStatus: {
+    padding: "7px 8px",
+    borderBottom: "1px solid #000000",
+    textAlign: "center",
+    verticalAlign: "top",
+  },
+  documentItemTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: "#0F172A",
+  },
+  documentItemInstruction: {
+    marginTop: 2,
+    fontSize: 11,
+    color: "#64748B",
+    lineHeight: 1.25,
+  },
+  documentStatusCell: {
+    display: "inline-block",
+    fontSize: 11,
+    fontWeight: 700,
+    whiteSpace: "nowrap",
+    padding: 0,
+  },
+  documentStatusCellOk: {
+    color: "#067647",
+  },
+  documentStatusCellNok: {
     color: "#B42318",
   },
-  statusBadgeNa: {
-    background: "#EFF6FF",
-    border: "1px solid #3B82F6",
+  documentStatusCellNa: {
     color: "#1D4ED8",
+  },
+  documentObservationText: {
+    fontSize: 11.5,
+    color: "#334155",
+    lineHeight: 1.3,
+  },
+  documentObservationBlock: {
+    marginTop: 4,
+    display: "block",
   },
   primaryButton: {
     background: "linear-gradient(135deg, #0057B8 0%, #0A6AD7 100%)",
     color: "#FFFFFF",
     border: "none",
-    borderRadius: 16,
-    padding: "14px 18px",
-    fontSize: 15,
+    borderRadius: 10,
+    padding: "12px 16px",
+    fontSize: 14,
     fontWeight: 700,
     cursor: "pointer",
-    boxShadow: "0 14px 28px rgba(0,87,184,0.22)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
+    boxShadow: "0 12px 24px rgba(0, 87, 184, 0.18)",
   },
   secondaryButton: {
     background: "#FFFFFF",
     color: "#344054",
     border: "1px solid #D0D5DD",
-    borderRadius: 16,
-    padding: "14px 18px",
-    fontSize: 15,
+    borderRadius: 10,
+    padding: "12px 16px",
+    fontSize: 14,
     fontWeight: 600,
     cursor: "pointer",
   },
@@ -789,12 +855,12 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
   },
-  loadingCard: {
-    maxWidth: 520,
+  feedbackCard: {
+    maxWidth: 620,
     margin: "80px auto",
     background: "#FFFFFF",
     border: "1px solid #D9D9D9",
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 24,
     textAlign: "center",
     fontWeight: 600,
@@ -802,14 +868,8 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#1F2937",
   },
   errorCard: {
-    maxWidth: 620,
-    margin: "80px auto",
     background: "#FFF1F0",
     border: "1px solid #F5C2C7",
-    borderRadius: 20,
-    padding: 24,
     color: "#B42318",
-    fontWeight: 600,
-    fontSize: 15,
   },
 };
