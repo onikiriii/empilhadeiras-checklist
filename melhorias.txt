@@ -1,0 +1,13 @@
+Itens N OK no checklist → vão pra um banco unico separado por checklist e área → são classificados pelo responsável de área quem executará a ação (seg ou manut)
+
+Criar as areas para inspeção de campo → atribuir os responsaveis da area (executantes do checklist)  
+
+
+Tipos de usuário
+{
+Usuário que assina a execução
+Usuário que assina a participação (//somente adicionar campo no checklist)
+Usuário responsável da área (//Recebe as ações e executa ou delega)
+Usuário Master (//Gerentes e diretores)
+}
+
