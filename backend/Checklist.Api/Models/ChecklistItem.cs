@@ -18,6 +18,8 @@ public class ChecklistItem
     public string? Observacao { get; set; }  // opcional do operador
 
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+
+    public ChecklistItemAcao? Acao { get; set; }
 }
 
 public enum ItemStatus

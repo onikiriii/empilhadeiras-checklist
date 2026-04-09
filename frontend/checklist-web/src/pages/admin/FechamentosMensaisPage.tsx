@@ -214,8 +214,8 @@ export default function FechamentosMensaisPage() {
     <div className="cf-page">
       <div className="cf-page-header">
         <div>
-          <h1 className="cf-page-title">Fechamentos mensais</h1>
-          <p className="cf-page-subtitle">Feche a competencia por equipamento e gere a planilha oficial do mes.</p>
+          <h1 className="cf-page-title"></h1>
+          <p className="cf-page-subtitle"></p>
         </div>
       </div>
 
@@ -281,9 +281,6 @@ export default function FechamentosMensaisPage() {
               <h2 className="cf-surface-title">
                 Previa {preview.equipamentoCodigo} - {String(preview.mes).padStart(2, "0")}/{preview.ano}
               </h2>
-              <p className="cf-page-subtitle">
-                {preview.totalDiasComChecklist} dias com checklist consolidado. A previa pode ser gerada mesmo com o mes incompleto.
-              </p>
             </div>
             <div className="cf-metrics" style={{ minWidth: 280 }}>
               <div className="cf-metric">

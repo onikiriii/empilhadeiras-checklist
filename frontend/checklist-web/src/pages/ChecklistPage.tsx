@@ -343,7 +343,6 @@ export function ChecklistPage() {
 
           <div className="cf-checklist-hero-copy">
             <h1 className="cf-checklist-title">Checklist</h1>
-            <p className="cf-checklist-subtitle">Preencha a inspeção do equipamento antes da assinatura do operador.</p>
           </div>
 
           <div className="cf-checklist-equipment-grid">
