@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<ChecklistItemTemplate> ChecklistItensTemplate { get; set; } = null!;
     public DbSet<ChecklistModel> Checklists { get; set; } = null!;
     public DbSet<ChecklistItem> ChecklistItens { get; set; } = null!;
+    public DbSet<ChecklistItemAcao> ChecklistItensAcoes { get; set; } = null!;
     public DbSet<Setor> Setores { get; set; } = null!;
     public DbSet<UsuarioSupervisor> UsuariosSupervisores { get; set; } = null!;
     public DbSet<FechamentoChecklistMensal> FechamentosChecklistMensais { get; set; } = null!;
@@ -144,6 +145,39 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.Template)
                 .WithMany()
                 .HasForeignKey(x => x.TemplateId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ChecklistItemAcao>(e =>
+        {
+            e.Property(x => x.ObservacaoAtribuicao).HasMaxLength(1000);
+            e.Property(x => x.Status).HasConversion<int>();
+
+            e.HasIndex(x => x.ChecklistItemId).IsUnique();
+
+            e.HasOne(x => x.ChecklistItem)
+                .WithOne(x => x.Acao)
+                .HasForeignKey<ChecklistItemAcao>(x => x.ChecklistItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.AprovadoPorSupervisor)
+                .WithMany()
+                .HasForeignKey(x => x.AprovadoPorSupervisorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.ResponsavelSupervisor)
+                .WithMany()
+                .HasForeignKey(x => x.ResponsavelSupervisorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.ResponsavelSetor)
+                .WithMany()
+                .HasForeignKey(x => x.ResponsavelSetorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.ConcluidoPorSupervisor)
+                .WithMany()
+                .HasForeignKey(x => x.ConcluidoPorSupervisorId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

@@ -214,8 +214,8 @@ export default function FechamentosMensaisPage() {
     <div className="cf-page">
       <div className="cf-page-header">
         <div>
-          <h1 className="cf-page-title">Fechamentos mensais</h1>
-          <p className="cf-page-subtitle">Feche a competencia por equipamento e gere a planilha oficial do mes.</p>
+          <h1 className="cf-page-title"></h1>
+          <p className="cf-page-subtitle"></p>
         </div>
       </div>
 

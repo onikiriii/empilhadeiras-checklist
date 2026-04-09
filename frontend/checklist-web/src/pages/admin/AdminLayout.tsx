@@ -6,6 +6,7 @@ import "../../styles/global.css";
 const supervisorMenuItems = [
   { path: "/admin/dashboard", label: "Dashboard", icon: <DashboardIcon /> },
   { path: "/admin/checklists", label: "Checklists", icon: <ChecklistIcon /> },
+  { path: "/admin/itens-nao-ok", label: "Itens nao OK", icon: <AlertIcon /> },
   { path: "/admin/fechamentos-mensais", label: "Fechamentos", icon: <CalendarIcon /> },
   { path: "/admin/categorias", label: "Categorias", icon: <FolderIcon /> },
   { path: "/admin/templates", label: "Templates", icon: <TemplateIcon /> },
@@ -21,6 +22,7 @@ const masterMenuItems = [
 const pageTitles: Record<string, string> = {
   "/admin/dashboard": "Visao Geral",
   "/admin/checklists": "Checklists",
+  "/admin/itens-nao-ok": "Itens nao OK",
   "/admin/fechamentos-mensais": "Fechamentos Mensais",
   "/admin/categorias": "Categorias",
   "/admin/templates": "Templates",
@@ -300,6 +302,21 @@ function CalendarIcon() {
       <path d="M9 14H9.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
       <path d="M12 14H12.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
       <path d="M15 14H15.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 9V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 17H12.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      <path
+        d="M10.29 3.86L1.82 18A2 2 0 0 0 3.53 21H20.47A2 2 0 0 0 22.18 18L13.71 3.86A2 2 0 0 0 10.29 3.86Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }

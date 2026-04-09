@@ -178,6 +178,59 @@ namespace Checklist.Api.Migrations
                     b.ToTable("ChecklistItens");
                 });
 
+            modelBuilder.Entity("Checklist.Api.Models.ChecklistItemAcao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("AprovadoPorSupervisorId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime>("AprovadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("ChecklistItemId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("ConcluidoPorSupervisorId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTime?>("ConcluidoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ObservacaoAtribuicao")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<Guid?>("ResponsavelSetorId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("ResponsavelSupervisorId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AprovadoPorSupervisorId");
+
+                    b.HasIndex("ChecklistItemId")
+                        .IsUnique();
+
+                    b.HasIndex("ConcluidoPorSupervisorId");
+
+                    b.HasIndex("ResponsavelSetorId");
+
+                    b.HasIndex("ResponsavelSupervisorId");
+
+                    b.ToTable("ChecklistItensAcoes");
+                });
+
             modelBuilder.Entity("Checklist.Api.Models.ChecklistItemTemplate", b =>
                 {
                     b.Property<Guid>("Id")
@@ -539,9 +592,51 @@ namespace Checklist.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("Acao");
+
                     b.Navigation("Checklist");
 
                     b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.ChecklistItemAcao", b =>
+                {
+                    b.HasOne("Checklist.Api.Models.UsuarioSupervisor", "AprovadoPorSupervisor")
+                        .WithMany()
+                        .HasForeignKey("AprovadoPorSupervisorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Checklist.Api.Models.ChecklistItem", "ChecklistItem")
+                        .WithOne("Acao")
+                        .HasForeignKey("Checklist.Api.Models.ChecklistItemAcao", "ChecklistItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Checklist.Api.Models.UsuarioSupervisor", "ConcluidoPorSupervisor")
+                        .WithMany()
+                        .HasForeignKey("ConcluidoPorSupervisorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Checklist.Api.Models.Setor", "ResponsavelSetor")
+                        .WithMany()
+                        .HasForeignKey("ResponsavelSetorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Checklist.Api.Models.UsuarioSupervisor", "ResponsavelSupervisor")
+                        .WithMany()
+                        .HasForeignKey("ResponsavelSupervisorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AprovadoPorSupervisor");
+
+                    b.Navigation("ChecklistItem");
+
+                    b.Navigation("ConcluidoPorSupervisor");
+
+                    b.Navigation("ResponsavelSetor");
+
+                    b.Navigation("ResponsavelSupervisor");
                 });
 
             modelBuilder.Entity("Checklist.Api.Models.ChecklistItemTemplate", b =>
