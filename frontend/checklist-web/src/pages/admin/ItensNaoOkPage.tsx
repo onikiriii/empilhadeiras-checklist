@@ -63,6 +63,11 @@ export default function ItensNaoOkPage() {
   const [dataFim, setDataFim] = useState("");
   const [equipamento, setEquipamento] = useState("");
   const [operador, setOperador] = useState("");
+  const [collapsedSections, setCollapsedSections] = useState({
+    pendentes: true,
+    andamento: true,
+    concluidas: true,
+  });
 
   const totalItens = useMemo(
     () => painel.pendentesAprovacao.length + painel.emAndamento.length + painel.concluidas.length,
@@ -217,9 +222,6 @@ export default function ItensNaoOkPage() {
       <div style={styles.header}>
         <div>
           <h1 style={styles.title}>Itens nao OK</h1>
-          <p style={styles.subtitle}>
-            Aprove itens pendentes, atribua tratativas e acompanhe o andamento das acoes do seu setor.
-          </p>
         </div>
 
         <div style={styles.metricsRow}>
@@ -267,8 +269,9 @@ export default function ItensNaoOkPage() {
       ) : (
         <div style={styles.sections}>
           <PainelSection
-            title="Pendentes de aprovacao"
-            subtitle="Itens nao OK do seu setor que ainda precisam de responsavel ou conclusao direta."
+            collapsed={collapsedSections.pendentes}
+            onToggle={() => setCollapsedSections((current) => ({ ...current, pendentes: !current.pendentes }))}
+            title="Pendentes de aprovação"
             items={painel.pendentesAprovacao}
             emptyMessage="Nenhum item pendente de aprovacao."
             tone="warning"
@@ -334,8 +337,9 @@ export default function ItensNaoOkPage() {
           />
 
           <PainelSection
-            title="Acoes em andamento"
-            subtitle="Tratativas aprovadas pelo seu setor ou atualmente sob sua responsabilidade."
+            collapsed={collapsedSections.andamento}
+            onToggle={() => setCollapsedSections((current) => ({ ...current, andamento: !current.andamento }))}
+            title="Ações em andamento"
             items={painel.emAndamento}
             emptyMessage="Nenhuma tratativa em andamento."
             tone="primary"
@@ -363,8 +367,9 @@ export default function ItensNaoOkPage() {
           />
 
           <PainelSection
-            title="Concluidas"
-            subtitle="Historico recente das tratativas finalizadas que envolvem o seu setor."
+            collapsed={collapsedSections.concluidas}
+            onToggle={() => setCollapsedSections((current) => ({ ...current, concluidas: !current.concluidas }))}
+            title="Concluídas"
             items={painel.concluidas}
             emptyMessage="Nenhuma tratativa concluida."
             tone="success"
@@ -386,26 +391,51 @@ export default function ItensNaoOkPage() {
 }
 
 function PainelSection({
+  collapsed,
+  onToggle,
   title,
-  subtitle,
   items,
   emptyMessage,
   tone,
   renderActions,
 }: {
+  collapsed: boolean;
+  onToggle: () => void;
   title: string;
-  subtitle: string;
   items: PainelItem[];
   emptyMessage: string;
   tone: "warning" | "primary" | "success";
   renderActions: (item: PainelItem) => React.ReactNode;
 }) {
+  const toneContainerStyle =
+    tone === "warning"
+      ? styles.sectionCardWarning
+      : tone === "success"
+        ? styles.sectionCardSuccess
+        : styles.sectionCardPrimary;
+
+  const toneItemStyle =
+    tone === "warning"
+      ? styles.itemCardWarning
+      : tone === "success"
+        ? styles.itemCardSuccess
+        : styles.itemCardPrimary;
+
   return (
-    <section style={styles.sectionCard}>
-      <div style={styles.sectionHeader}>
-        <div>
-          <h2 style={styles.sectionTitle}>{title}</h2>
-          <p style={styles.sectionSubtitle}>{subtitle}</p>
+    <section style={{ ...styles.sectionCard, ...toneContainerStyle }}>
+      <button type="button" style={styles.sectionToggle} onClick={onToggle}>
+        <div style={styles.sectionHeaderContent}>
+          <span
+            style={{
+              ...styles.chevron,
+              transform: collapsed ? "rotate(0deg)" : "rotate(90deg)",
+            }}
+          >
+            <ChevronIcon />
+          </span>
+          <div>
+            <h2 style={styles.sectionTitle}>{title}</h2>
+          </div>
         </div>
         <span
           style={{
@@ -419,14 +449,14 @@ function PainelSection({
         >
           {items.length}
         </span>
-      </div>
+      </button>
 
-      {items.length === 0 ? (
+      {!collapsed ? (items.length === 0 ? (
         <div style={styles.emptyState}>{emptyMessage}</div>
       ) : (
         <div style={styles.cardGrid}>
           {items.map((item) => (
-            <article key={item.checklistItemId} style={styles.itemCard}>
+            <article key={item.checklistItemId} style={{ ...styles.itemCard, ...toneItemStyle }}>
               <div style={styles.itemHeader}>
                 <div>
                   <div style={styles.codeBadge}>{item.equipamentoCodigo}</div>
@@ -467,7 +497,7 @@ function PainelSection({
             </article>
           ))}
         </div>
-      )}
+      )) : null}
     </section>
   );
 }
@@ -506,6 +536,14 @@ function MetricCard({ value, label, tone }: { value: number; label: string; tone
   );
 }
 
+function ChevronIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 6L15 12L9 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function extractMessage(error: unknown, fallback: string) {
   if (error instanceof ApiError) {
     try {
@@ -524,7 +562,6 @@ const styles: Record<string, React.CSSProperties> = {
   page: { display: "grid", gap: 16 },
   header: { display: "grid", gap: 14 },
   title: { margin: 0, fontSize: 24, fontWeight: 700, color: "#1F2937" },
-  subtitle: { margin: "6px 0 0", fontSize: 14.5, lineHeight: 1.55, color: "#667085", maxWidth: 760 },
   metricsRow: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 180px))", gap: 10 },
   metricCard: { borderRadius: 18, border: "1px solid #DDE6F0", background: "rgba(255,255,255,0.88)", padding: 14 },
   metricPrimary: { borderColor: "#C9DDFC", background: "#EEF5FF" },
@@ -543,18 +580,25 @@ const styles: Record<string, React.CSSProperties> = {
   primaryButton: { background: "linear-gradient(135deg, #0057B8 0%, #0A6AD7 100%)", color: "#FFFFFF", border: "none", borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
   secondaryButton: { background: "#FFFFFF", color: "#344054", border: "1px solid #D0D5DD", borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
   loadingCard: { background: "#FFFFFF", border: "1px solid #D9D9D9", borderRadius: 18, padding: 24, textAlign: "center", fontSize: 14, fontWeight: 600, color: "#475467" },
-  sections: { display: "grid", gap: 16 },
-  sectionCard: { background: "rgba(255,255,255,0.94)", border: "1px solid rgba(217,217,217,0.96)", borderRadius: 20, padding: 18, display: "grid", gap: 16 },
-  sectionHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
-  sectionTitle: { margin: 0, fontSize: 18, fontWeight: 700, color: "#1F2937" },
-  sectionSubtitle: { margin: "4px 0 0", fontSize: 13.5, lineHeight: 1.5, color: "#667085", maxWidth: 720 },
-  countBadge: { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 34, height: 30, borderRadius: 999, fontSize: 13, fontWeight: 700, padding: "0 10px" },
-  countBadgePrimary: { background: "#EAF2FF", color: "#0057B8" },
-  countBadgeWarning: { background: "#FFF2E2", color: "#B54708" },
-  countBadgeSuccess: { background: "#EAF8EE", color: "#1E7E34" },
-  emptyState: { borderRadius: 16, border: "1px dashed #D0D5DD", padding: 28, textAlign: "center", fontSize: 14, color: "#667085" },
-  cardGrid: { display: "grid", gap: 14 },
-  itemCard: { border: "1px solid #E5E7EB", borderRadius: 18, padding: 16, display: "grid", gap: 14, background: "#FFFFFF" },
+  sections: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16, alignItems: "start" },
+  sectionCard: { borderRadius: 24, padding: 18, display: "grid", gap: 16, border: "1px solid rgba(217,217,217,0.96)" },
+  sectionCardPrimary: { background: "#0A6AD7", borderColor: "#0A6AD7" },
+  sectionCardWarning: { background: "#D92D20", borderColor: "#D92D20" },
+  sectionCardSuccess: { background: "#169C4B", borderColor: "#169C4B" },
+  sectionToggle: { background: "transparent", border: "none", padding: 0, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, width: "100%", cursor: "pointer", textAlign: "left" },
+  sectionHeaderContent: { display: "flex", alignItems: "flex-start", gap: 12 },
+  chevron: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: 999, background: "rgba(255,255,255,0.16)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.28)", transition: "transform 180ms ease" },
+  sectionTitle: { margin: 0, fontSize: 18, fontWeight: 800, color: "#FFFFFF" },
+  countBadge: { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 34, height: 30, borderRadius: 999, fontSize: 13, fontWeight: 800, padding: "0 10px", border: "1px solid rgba(255,255,255,0.24)" },
+  countBadgePrimary: { background: "rgba(255,255,255,0.18)", color: "#FFFFFF" },
+  countBadgeWarning: { background: "rgba(255,255,255,0.18)", color: "#FFFFFF" },
+  countBadgeSuccess: { background: "rgba(255,255,255,0.18)", color: "#FFFFFF" },
+  emptyState: { borderRadius: 16, border: "1px dashed rgba(255,255,255,0.32)", padding: 28, textAlign: "center", fontSize: 14, color: "rgba(255,255,255,0.86)", background: "rgba(255,255,255,0.08)" },
+  cardGrid: { display: "grid", gap: 16 },
+  itemCard: { border: "1px solid rgba(255,255,255,0.75)", borderRadius: 22, padding: 18, display: "grid", gap: 14, background: "#FFFFFF" },
+  itemCardPrimary: { borderColor: "#7CB3F4" },
+  itemCardWarning: { borderColor: "#F3A6A0" },
+  itemCardSuccess: { borderColor: "#8BDBAE" },
   itemHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 },
   codeBadge: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "6px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: "#EAF2FF", color: "#0057B8", border: "1px solid #C9DDFC", marginBottom: 8 },
   itemTitle: { fontSize: 16, fontWeight: 700, color: "#1F2937" },
@@ -573,8 +617,8 @@ const styles: Record<string, React.CSSProperties> = {
   primarySmallButton: { background: "linear-gradient(135deg, #0057B8 0%, #0A6AD7 100%)", color: "#FFFFFF", border: "none", borderRadius: 10, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" },
   secondarySmallButton: { background: "#FFFFFF", color: "#344054", border: "1px solid #D0D5DD", borderRadius: 10, padding: "9px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
   successSmallButton: { background: "#EEF8F2", color: "#116032", border: "1px solid #CDE8D6", borderRadius: 10, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" },
-  metaPanel: { display: "grid", gap: 8, background: "#F9FAFB", border: "1px solid #EAECF0", borderRadius: 14, padding: 12 },
+  metaPanel: { display: "grid", gap: 8, background: "linear-gradient(180deg, #FFF4BF 0%, #FFE073 100%)", border: "1px solid #EAB308", borderRadius: 16, padding: 14, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.45)" },
   metaLine: { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" },
-  metaLabel: { fontSize: 12.5, color: "#667085", fontWeight: 600 },
-  metaValue: { fontSize: 13, color: "#1F2937", fontWeight: 600, textAlign: "right" },
+  metaLabel: { fontSize: 12.5, color: "#7A4A00", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.28 },
+  metaValue: { fontSize: 13, color: "#1F2937", fontWeight: 700, textAlign: "right" },
 };

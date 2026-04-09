@@ -38,10 +38,6 @@ export default function FirstAccessPasswordPage() {
       <div style={styles.card}>
         <div style={styles.eyebrow}>Primeiro acesso</div>
         <h1 style={styles.title}>Defina sua nova senha</h1>
-        <p style={styles.subtitle}>
-          {session?.supervisor.nomeCompleto}, este é o ajuste inicial do seu acesso. Sem isso, o painel administrativo
-          permanece bloqueado.
-        </p>
 
         <div style={styles.infoBlock}>
           <div style={styles.infoLabel}>Login</div>

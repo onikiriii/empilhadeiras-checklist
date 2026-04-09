@@ -592,8 +592,6 @@ namespace Checklist.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Acao");
-
                     b.Navigation("Checklist");
 
                     b.Navigation("Template");
@@ -755,6 +753,11 @@ namespace Checklist.Api.Migrations
             modelBuilder.Entity("Checklist.Api.Models.Checklist", b =>
                 {
                     b.Navigation("Itens");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.ChecklistItem", b =>
+                {
+                    b.Navigation("Acao");
                 });
 
             modelBuilder.Entity("Checklist.Api.Models.FechamentoChecklistMensal", b =>

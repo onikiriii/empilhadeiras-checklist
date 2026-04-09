@@ -281,9 +281,6 @@ export default function FechamentosMensaisPage() {
               <h2 className="cf-surface-title">
                 Previa {preview.equipamentoCodigo} - {String(preview.mes).padStart(2, "0")}/{preview.ano}
               </h2>
-              <p className="cf-page-subtitle">
-                {preview.totalDiasComChecklist} dias com checklist consolidado. A previa pode ser gerada mesmo com o mes incompleto.
-              </p>
             </div>
             <div className="cf-metrics" style={{ minWidth: 280 }}>
               <div className="cf-metric">
