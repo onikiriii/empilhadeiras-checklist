@@ -28,6 +28,7 @@ import OperadoresPage from "./pages/admin/OperadoresPage";
 import SetoresPage from "./pages/admin/SetoresPage";
 import SupervisoresPage from "./pages/admin/SupervisoresPage";
 import TemplatesPage from "./pages/admin/TemplatesPage";
+import ItensNaoOkDashboardPage from "./pages/admin/ItensNaoOkDashboardPage";
 
 function AdminIndexRedirect() {
   const { session } = useAuth();
@@ -96,7 +97,15 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               path="itens-nao-ok"
               element={(
                 <RequireSectorSupervisor>
-                  <ItensNaoOkPage />
+                  <ItensNaoOkDashboardPage />
+                </RequireSectorSupervisor>
+              )}
+            />
+            <Route
+              path="itens-nao-ok/lista"
+              element={(
+                <RequireSectorSupervisor>
+                    <ItensNaoOkPage />
                 </RequireSectorSupervisor>
               )}
             />

@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { CSSProperties, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "../../api";
 import { useAuth } from "../../auth";
 
@@ -42,6 +43,8 @@ type ResponsavelOption = {
   setorNome: string;
 };
 
+type ActiveStatus = "pendentes" | "andamento" | "concluidas";
+
 const EMPTY_PANEL: PainelResponse = {
   pendentesAprovacao: [],
   emAndamento: [],
@@ -51,6 +54,13 @@ const EMPTY_PANEL: PainelResponse = {
 export default function ItensNaoOkPage() {
   const { session } = useAuth();
   const currentSupervisorId = session?.supervisor.id ?? "";
+  const [searchParams] = useSearchParams();
+
+  const rawStatus = searchParams.get("status");
+  const activeStatus: ActiveStatus =
+    rawStatus === "pendentes" || rawStatus === "andamento" || rawStatus === "concluidas"
+      ? rawStatus
+      : "pendentes";
 
   const [painel, setPainel] = useState<PainelResponse>(EMPTY_PANEL);
   const [responsaveis, setResponsaveis] = useState<ResponsavelOption[]>([]);
@@ -63,16 +73,45 @@ export default function ItensNaoOkPage() {
   const [dataFim, setDataFim] = useState("");
   const [equipamento, setEquipamento] = useState("");
   const [operador, setOperador] = useState("");
-  const [collapsedSections, setCollapsedSections] = useState({
-    pendentes: true,
-    andamento: true,
-    concluidas: true,
-  });
+  const [filtersCollapsed, setFiltersCollapsed] = useState(true);
+
+  const pageMeta = useMemo(() => {
+    if (activeStatus === "pendentes") {
+      return {
+        title: "Pendentes",
+        description: "Itens aguardando aprovacao e atribuicao.",
+        cardAccent: styles.listHeaderDanger,
+        countBadge: styles.countBadgeDanger,
+      };
+    }
+
+    if (activeStatus === "andamento") {
+      return {
+        title: "Em andamento",
+        description: "Tratativas aprovadas que ainda exigem acao.",
+        cardAccent: styles.listHeaderPrimary,
+        countBadge: styles.countBadgePrimary,
+      };
+    }
+
+    return {
+      title: "Concluidas",
+      description: "Itens encerrados para consulta e historico.",
+      cardAccent: styles.listHeaderSuccess,
+      countBadge: styles.countBadgeSuccess,
+    };
+  }, [activeStatus]);
 
   const totalItens = useMemo(
     () => painel.pendentesAprovacao.length + painel.emAndamento.length + painel.concluidas.length,
     [painel],
   );
+
+  const activeItems = useMemo(() => {
+    if (activeStatus === "pendentes") return painel.pendentesAprovacao;
+    if (activeStatus === "andamento") return painel.emAndamento;
+    return painel.concluidas;
+  }, [activeStatus, painel]);
 
   useEffect(() => {
     void loadInitialData();
@@ -100,8 +139,8 @@ export default function ItensNaoOkPage() {
 
     try {
       await Promise.all([loadResponsaveis(), loadPainel()]);
-    } catch (e) {
-      setError(extractMessage(e, "Erro ao carregar o painel de itens nao OK."));
+    } catch (err) {
+      setError(extractMessage(err, "Erro ao carregar a lista de itens nao OK."));
     } finally {
       setLoading(false);
     }
@@ -114,6 +153,7 @@ export default function ItensNaoOkPage() {
 
   async function loadPainel() {
     const params = new URLSearchParams();
+
     if (dataInicio) params.set("dataInicio", dataInicio);
     if (dataFim) params.set("dataFim", dataFim);
     if (equipamento) params.set("equipamento", equipamento);
@@ -122,6 +162,7 @@ export default function ItensNaoOkPage() {
     const query = params.toString();
     const url = query ? `/api/supervisor/itens-nao-ok/painel?${query}` : "/api/supervisor/itens-nao-ok/painel";
     const data = await api.get<PainelResponse>(url);
+
     setPainel(data);
     setSelectedResponsaveis((current) => {
       const next = { ...current };
@@ -143,8 +184,8 @@ export default function ItensNaoOkPage() {
 
     try {
       await loadPainel();
-    } catch (e) {
-      setError(extractMessage(e, "Erro ao carregar itens nao OK."));
+    } catch (err) {
+      setError(extractMessage(err, "Erro ao carregar os itens nao OK."));
     } finally {
       setLoading(false);
     }
@@ -161,6 +202,7 @@ export default function ItensNaoOkPage() {
 
   async function handleAtribuir(item: PainelItem) {
     const responsavelSupervisorId = selectedResponsaveis[item.checklistItemId];
+
     if (!responsavelSupervisorId) {
       setError("Selecione um responsavel antes de atribuir a tratativa.");
       return;
@@ -175,11 +217,12 @@ export default function ItensNaoOkPage() {
         responsavelSupervisorId,
         observacaoAtribuicao: null,
       });
+
       await loadPainel();
       const responsavel = responsaveis.find((entry) => entry.id === responsavelSupervisorId);
       setSuccess(`Tratativa atribuida para ${responsavel?.nomeCompleto || "o responsavel selecionado"}.`);
-    } catch (e) {
-      setError(extractMessage(e, "Erro ao atribuir a tratativa."));
+    } catch (err) {
+      setError(extractMessage(err, "Erro ao atribuir a tratativa."));
     } finally {
       setActionLoadingKey("");
     }
@@ -194,8 +237,8 @@ export default function ItensNaoOkPage() {
       await api.post<PainelItem>(`/api/supervisor/itens-nao-ok/${item.checklistItemId}/concluir`, {});
       await loadPainel();
       setSuccess(`Tratativa do item ${item.ordem} marcada como concluida.`);
-    } catch (e) {
-      setError(extractMessage(e, "Erro ao concluir a tratativa."));
+    } catch (err) {
+      setError(extractMessage(err, "Erro ao concluir a tratativa."));
     } finally {
       setActionLoadingKey("");
     }
@@ -214,20 +257,21 @@ export default function ItensNaoOkPage() {
 
   function responsavelLabel(id: string) {
     const responsavel = responsaveis.find((entry) => entry.id === id);
-    return responsavel ? `${responsavel.nomeCompleto} • ${responsavel.setorNome}` : "Responsavel";
+    return responsavel ? `${responsavel.nomeCompleto} - ${responsavel.setorNome}` : "Responsavel";
   }
 
   return (
     <div style={styles.page}>
       <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Itens nao OK</h1>
-        </div>
+        <div style={styles.titleBlock}>
+          <div>
+            <h1 style={styles.title}>{pageMeta.title}</h1>
+            <p style={styles.description}>{pageMeta.description}</p>
+          </div>
 
-        <div style={styles.metricsRow}>
-          <MetricCard value={painel.pendentesAprovacao.length} label="Pendentes" tone="warning" />
-          <MetricCard value={painel.emAndamento.length} label="Em andamento" tone="primary" />
-          <MetricCard value={painel.concluidas.length} label="Concluidas" tone="success" />
+          <Link to="/admin/itens-nao-ok" style={styles.backLink}>
+            Voltar aos cards
+          </Link>
         </div>
       </div>
 
@@ -235,270 +279,211 @@ export default function ItensNaoOkPage() {
       {success ? <div style={styles.successAlert}>{success}</div> : null}
 
       <div style={styles.filterCard}>
-        <div style={styles.filterGrid}>
-          <div>
-            <label style={styles.label}>Inicio</label>
-            <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} style={styles.input} />
+        <button type="button" style={styles.filterToggle} onClick={() => setFiltersCollapsed((current) => !current)}>
+          <div style={styles.filterToggleCopy}>
+            <span style={styles.filterToggleTitle}>Filtros</span>
+            <span style={styles.filterToggleMeta}>
+              {filtersCollapsed ? "Expandir filtros" : "Ocultar filtros"}
+            </span>
           </div>
-
-          <div>
-            <label style={styles.label}>Fim</label>
-            <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} style={styles.input} />
-          </div>
-
-          <div>
-            <label style={styles.label}>Equipamento</label>
-            <input value={equipamento} onChange={(e) => setEquipamento(e.target.value)} style={styles.input} />
-          </div>
-
-          <div>
-            <label style={styles.label}>Operador</label>
-            <input value={operador} onChange={(e) => setOperador(e.target.value)} style={styles.input} />
-          </div>
-        </div>
-
-        <div style={styles.filterActions}>
-          <button type="button" onClick={() => void handleBuscar()} style={styles.primaryButton}>Buscar</button>
-          <button type="button" onClick={resetFiltros} style={styles.secondaryButton}>Limpar</button>
-          <span style={styles.filterMeta}>{totalItens} registros no painel atual</span>
-        </div>
-      </div>
-
-      {loading ? (
-        <div style={styles.loadingCard}>Carregando painel de tratativas...</div>
-      ) : (
-        <div style={styles.sections}>
-          <PainelSection
-            collapsed={collapsedSections.pendentes}
-            onToggle={() => setCollapsedSections((current) => ({ ...current, pendentes: !current.pendentes }))}
-            title="Pendentes de aprovação"
-            items={painel.pendentesAprovacao}
-            emptyMessage="Nenhum item pendente de aprovacao."
-            tone="warning"
-            renderActions={(item) => (
-              <div style={styles.actionColumn}>
-                <select
-                  value={selectedResponsaveis[item.checklistItemId] || ""}
-                  onChange={(e) =>
-                    setSelectedResponsaveis((current) => ({
-                      ...current,
-                      [item.checklistItemId]: e.target.value,
-                    }))
-                  }
-                  style={styles.input}
-                >
-                  <option value="">Selecione um responsavel</option>
-                  {responsaveis.map((responsavel) => (
-                    <option key={responsavel.id} value={responsavel.id}>
-                      {responsavel.nomeCompleto} - {responsavel.setorNome}
-                    </option>
-                  ))}
-                </select>
-
-                <div style={styles.inlineActions}>
-                  <button
-                    type="button"
-                    style={styles.secondarySmallButton}
-                    onClick={() =>
-                      setSelectedResponsaveis((current) => ({
-                        ...current,
-                        [item.checklistItemId]: currentSupervisorId,
-                      }))
-                    }
-                    disabled={!currentSupervisorId}
-                  >
-                    Atribuir para mim
-                  </button>
-
-                  <button
-                    type="button"
-                    style={styles.primarySmallButton}
-                    onClick={() => void handleAtribuir(item)}
-                    disabled={actionLoadingKey === `assign-${item.checklistItemId}`}
-                  >
-                    {actionLoadingKey === `assign-${item.checklistItemId}`
-                      ? "Atribuindo..."
-                      : selectedResponsaveis[item.checklistItemId]
-                        ? `Aprovar e atribuir para ${responsavelLabel(selectedResponsaveis[item.checklistItemId])}`
-                        : "Aprovar e atribuir"}
-                  </button>
-
-                  <button
-                    type="button"
-                    style={styles.successSmallButton}
-                    onClick={() => void handleConcluir(item)}
-                    disabled={actionLoadingKey === `complete-${item.checklistItemId}`}
-                  >
-                    {actionLoadingKey === `complete-${item.checklistItemId}` ? "Concluindo..." : "Concluir agora"}
-                  </button>
-                </div>
-              </div>
-            )}
-          />
-
-          <PainelSection
-            collapsed={collapsedSections.andamento}
-            onToggle={() => setCollapsedSections((current) => ({ ...current, andamento: !current.andamento }))}
-            title="Ações em andamento"
-            items={painel.emAndamento}
-            emptyMessage="Nenhuma tratativa em andamento."
-            tone="primary"
-            renderActions={(item) => (
-              <div style={styles.actionColumn}>
-                <div style={styles.metaPanel}>
-                  <MetaLine label="Responsavel" value={item.responsavelNomeCompleto || "-"} />
-                  <MetaLine label="Setor responsavel" value={item.responsavelSetorNome || "-"} />
-                  <MetaLine label="Aprovado por" value={item.aprovadoPorNomeCompleto || "-"} />
-                  <MetaLine label="Aprovado em" value={formatarData(item.aprovadoEm)} />
-                </div>
-
-                <div style={styles.inlineActions}>
-                  <button
-                    type="button"
-                    style={styles.successSmallButton}
-                    onClick={() => void handleConcluir(item)}
-                    disabled={actionLoadingKey === `complete-${item.checklistItemId}`}
-                  >
-                    {actionLoadingKey === `complete-${item.checklistItemId}` ? "Concluindo..." : "Marcar como concluida"}
-                  </button>
-                </div>
-              </div>
-            )}
-          />
-
-          <PainelSection
-            collapsed={collapsedSections.concluidas}
-            onToggle={() => setCollapsedSections((current) => ({ ...current, concluidas: !current.concluidas }))}
-            title="Concluídas"
-            items={painel.concluidas}
-            emptyMessage="Nenhuma tratativa concluida."
-            tone="success"
-            renderActions={(item) => (
-              <div style={styles.actionColumn}>
-                <div style={styles.metaPanel}>
-                  <MetaLine label="Responsavel" value={item.responsavelNomeCompleto || "-"} />
-                  <MetaLine label="Setor responsavel" value={item.responsavelSetorNome || "-"} />
-                  <MetaLine label="Concluido por" value={item.concluidoPorNomeCompleto || "-"} />
-                  <MetaLine label="Concluido em" value={formatarData(item.concluidoEm)} />
-                </div>
-              </div>
-            )}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PainelSection({
-  collapsed,
-  onToggle,
-  title,
-  items,
-  emptyMessage,
-  tone,
-  renderActions,
-}: {
-  collapsed: boolean;
-  onToggle: () => void;
-  title: string;
-  items: PainelItem[];
-  emptyMessage: string;
-  tone: "warning" | "primary" | "success";
-  renderActions: (item: PainelItem) => React.ReactNode;
-}) {
-  const toneContainerStyle =
-    tone === "warning"
-      ? styles.sectionCardWarning
-      : tone === "success"
-        ? styles.sectionCardSuccess
-        : styles.sectionCardPrimary;
-
-  const toneItemStyle =
-    tone === "warning"
-      ? styles.itemCardWarning
-      : tone === "success"
-        ? styles.itemCardSuccess
-        : styles.itemCardPrimary;
-
-  return (
-    <section style={{ ...styles.sectionCard, ...toneContainerStyle }}>
-      <button type="button" style={styles.sectionToggle} onClick={onToggle}>
-        <div style={styles.sectionHeaderContent}>
           <span
             style={{
-              ...styles.chevron,
-              transform: collapsed ? "rotate(0deg)" : "rotate(90deg)",
+              ...styles.filterChevron,
+              transform: filtersCollapsed ? "rotate(0deg)" : "rotate(90deg)",
             }}
           >
             <ChevronIcon />
           </span>
-          <div>
-            <h2 style={styles.sectionTitle}>{title}</h2>
-          </div>
-        </div>
-        <span
-          style={{
-            ...styles.countBadge,
-            ...(tone === "warning"
-              ? styles.countBadgeWarning
-              : tone === "success"
-                ? styles.countBadgeSuccess
-                : styles.countBadgePrimary),
-          }}
-        >
-          {items.length}
-        </span>
-      </button>
+        </button>
 
-      {!collapsed ? (items.length === 0 ? (
-        <div style={styles.emptyState}>{emptyMessage}</div>
+        {!filtersCollapsed ? (
+          <>
+            <div style={styles.filterGrid}>
+              <div>
+                <label style={styles.label}>Inicio</label>
+                <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} style={styles.input} />
+              </div>
+
+              <div>
+                <label style={styles.label}>Fim</label>
+                <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} style={styles.input} />
+              </div>
+
+              <div>
+                <label style={styles.label}>Equipamento</label>
+                <input value={equipamento} onChange={(e) => setEquipamento(e.target.value)} style={styles.input} />
+              </div>
+
+              <div>
+                <label style={styles.label}>Operador</label>
+                <input value={operador} onChange={(e) => setOperador(e.target.value)} style={styles.input} />
+              </div>
+            </div>
+
+            <div style={styles.filterActions}>
+              <button type="button" onClick={() => void handleBuscar()} style={styles.primaryButton}>Buscar</button>
+              <button type="button" onClick={resetFiltros} style={styles.secondaryButton}>Limpar</button>
+              <span style={styles.filterMeta}>{totalItens} registros no painel atual</span>
+            </div>
+          </>
+        ) : (
+          <div style={styles.filterCollapsedSummary}>{totalItens} registros no painel atual</div>
+        )}
+      </div>
+
+      {loading ? (
+        <div style={styles.loadingCard}>Carregando lista...</div>
       ) : (
-        <div style={styles.cardGrid}>
-          {items.map((item) => (
-            <article key={item.checklistItemId} style={{ ...styles.itemCard, ...toneItemStyle }}>
-              <div style={styles.itemHeader}>
-                <div>
-                  <div style={styles.codeBadge}>{item.equipamentoCodigo}</div>
-                  <div style={styles.itemTitle}>Item {item.ordem} • {item.descricao}</div>
-                  <div style={styles.itemSubTitle}>{item.equipamentoDescricao}</div>
-                </div>
-                <a href={`/supervisor/checklist/${item.checklistId}`} style={styles.viewButton}>Ver checklist</a>
-              </div>
+        <section style={styles.listSection}>
+          <header style={{ ...styles.listHeader, ...pageMeta.cardAccent }}>
+            <div style={styles.listHeaderText}>
+              <h2 style={styles.listTitle}>{pageMeta.title}</h2>
+              <p style={styles.listSubtitle}>{activeItems.length} itens na fila atual</p>
+            </div>
 
-              <div style={styles.infoGrid}>
-                <InfoBlock label="Setor de origem" value={item.setorOrigemNome} />
-                <InfoBlock label="Operador" value={`${item.operadorNome} • ${item.operadorMatricula}`} />
-                <InfoBlock label="Data do checklist" value={new Date(item.dataRealizacao).toLocaleString("pt-BR")} />
-              </div>
+            <span style={{ ...styles.countBadge, ...pageMeta.countBadge }}>{activeItems.length}</span>
+          </header>
 
-              {item.instrucao ? (
-                <div style={styles.copyBlock}>
-                  <div style={styles.copyLabel}>Instrucao</div>
-                  <div style={styles.copyText}>{item.instrucao}</div>
-                </div>
-              ) : null}
+          {activeItems.length === 0 ? (
+            <div style={styles.emptyState}>Nenhum item encontrado para este status.</div>
+          ) : (
+            <div style={styles.itemsList}>
+              {activeItems.map((item) => (
+                <article key={item.checklistItemId} style={styles.itemCard}>
+                  <div style={styles.itemHeader}>
+                    <div style={styles.itemHeaderCopy}>
+                      <div style={styles.codeBadge}>{item.equipamentoCodigo}</div>
+                      <h3 style={styles.itemTitle}>Item {item.ordem} - {item.descricao}</h3>
+                      <div style={styles.itemSubtitle}>{item.equipamentoDescricao}</div>
+                    </div>
 
-              <div style={styles.copyBlock}>
-                <div style={styles.copyLabel}>Observacao do operador</div>
-                <div style={styles.copyText}>{item.observacao || "-"}</div>
-              </div>
+                    <a href={`/supervisor/checklist/${item.checklistId}`} style={styles.viewButton}>Ver checklist</a>
+                  </div>
 
-              {item.observacaoAtribuicao ? (
-                <div style={styles.copyBlock}>
-                  <div style={styles.copyLabel}>Observacao da atribuicao</div>
-                  <div style={styles.copyText}>{item.observacaoAtribuicao}</div>
-                </div>
-              ) : null}
+                  <div style={styles.infoGrid}>
+                    <InfoBlock label="Setor de origem" value={item.setorOrigemNome} />
+                    <InfoBlock label="Operador" value={`${item.operadorNome} - ${item.operadorMatricula}`} />
+                    <InfoBlock label="Data do checklist" value={formatarData(item.dataRealizacao)} />
+                  </div>
 
-              <div style={styles.cardFooter}>
-                {renderActions(item)}
-              </div>
-            </article>
-          ))}
-        </div>
-      )) : null}
-    </section>
+                  {item.instrucao ? (
+                    <div style={styles.copyBlock}>
+                      <div style={styles.copyLabel}>Instrucao</div>
+                      <div style={styles.copyText}>{item.instrucao}</div>
+                    </div>
+                  ) : null}
+
+                  <div style={styles.copyBlock}>
+                    <div style={styles.copyLabel}>Observacao do operador</div>
+                    <div style={styles.copyText}>{item.observacao || "-"}</div>
+                  </div>
+
+                  {item.observacaoAtribuicao ? (
+                    <div style={styles.copyBlock}>
+                      <div style={styles.copyLabel}>Observacao da atribuicao</div>
+                      <div style={styles.copyText}>{item.observacaoAtribuicao}</div>
+                    </div>
+                  ) : null}
+
+                  {activeStatus === "pendentes" ? (
+                    <div style={styles.cardFooter}>
+                      <select
+                        value={selectedResponsaveis[item.checklistItemId] || ""}
+                        onChange={(e) =>
+                          setSelectedResponsaveis((current) => ({
+                            ...current,
+                            [item.checklistItemId]: e.target.value,
+                          }))
+                        }
+                        style={styles.input}
+                      >
+                        <option value="">Selecione um responsavel</option>
+                        {responsaveis.map((responsavel) => (
+                          <option key={responsavel.id} value={responsavel.id}>
+                            {responsavel.nomeCompleto} - {responsavel.setorNome}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div style={styles.inlineActions}>
+                        <button
+                          type="button"
+                          style={styles.secondarySmallButton}
+                          onClick={() =>
+                            setSelectedResponsaveis((current) => ({
+                              ...current,
+                              [item.checklistItemId]: currentSupervisorId,
+                            }))
+                          }
+                          disabled={!currentSupervisorId}
+                        >
+                          Atribuir para mim
+                        </button>
+
+                        <button
+                          type="button"
+                          style={styles.primarySmallButton}
+                          onClick={() => void handleAtribuir(item)}
+                          disabled={actionLoadingKey === `assign-${item.checklistItemId}`}
+                        >
+                          {actionLoadingKey === `assign-${item.checklistItemId}`
+                            ? "Atribuindo..."
+                            : selectedResponsaveis[item.checklistItemId]
+                              ? `Aprovar e atribuir para ${responsavelLabel(selectedResponsaveis[item.checklistItemId])}`
+                              : "Aprovar e atribuir"}
+                        </button>
+
+                        <button
+                          type="button"
+                          style={styles.successSmallButton}
+                          onClick={() => void handleConcluir(item)}
+                          disabled={actionLoadingKey === `complete-${item.checklistItemId}`}
+                        >
+                          {actionLoadingKey === `complete-${item.checklistItemId}` ? "Concluindo..." : "Concluir agora"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {activeStatus === "andamento" ? (
+                    <div style={styles.cardFooter}>
+                      <div style={styles.metaPanel}>
+                        <MetaLine label="Responsavel" value={item.responsavelNomeCompleto || "-"} />
+                        <MetaLine label="Setor responsavel" value={item.responsavelSetorNome || "-"} />
+                        <MetaLine label="Aprovado por" value={item.aprovadoPorNomeCompleto || "-"} />
+                        <MetaLine label="Aprovado em" value={formatarData(item.aprovadoEm)} />
+                      </div>
+
+                      <div style={styles.inlineActions}>
+                        <button
+                          type="button"
+                          style={styles.successSmallButton}
+                          onClick={() => void handleConcluir(item)}
+                          disabled={actionLoadingKey === `complete-${item.checklistItemId}`}
+                        >
+                          {actionLoadingKey === `complete-${item.checklistItemId}` ? "Concluindo..." : "Marcar como concluida"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {activeStatus === "concluidas" ? (
+                    <div style={styles.cardFooter}>
+                      <div style={styles.metaPanel}>
+                        <MetaLine label="Responsavel" value={item.responsavelNomeCompleto || "-"} />
+                        <MetaLine label="Setor responsavel" value={item.responsavelSetorNome || "-"} />
+                        <MetaLine label="Concluido por" value={item.concluidoPorNomeCompleto || "-"} />
+                        <MetaLine label="Concluido em" value={formatarData(item.concluidoEm)} />
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+    </div>
   );
 }
 
@@ -520,22 +505,6 @@ function MetaLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MetricCard({ value, label, tone }: { value: number; label: string; tone: "warning" | "primary" | "success" }) {
-  const toneStyle =
-    tone === "warning"
-      ? styles.metricWarning
-      : tone === "success"
-        ? styles.metricSuccess
-        : styles.metricPrimary;
-
-  return (
-    <div style={{ ...styles.metricCard, ...toneStyle }}>
-      <div style={styles.metricValue}>{value}</div>
-      <div style={styles.metricLabel}>{label}</div>
-    </div>
-  );
-}
-
 function ChevronIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -545,80 +514,388 @@ function ChevronIcon() {
 }
 
 function extractMessage(error: unknown, fallback: string) {
-  if (error instanceof ApiError) {
-    try {
-      const parsed = JSON.parse(error.body) as { message?: string };
-      return parsed.message || error.body || error.message;
-    } catch {
-      return error.body || error.message;
-    }
-  }
-
-  if (error instanceof Error) return error.message;
+  if (error instanceof ApiError) return error.message || fallback;
+  if (error instanceof Error) return error.message || fallback;
   return fallback;
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  page: { display: "grid", gap: 16 },
-  header: { display: "grid", gap: 14 },
-  title: { margin: 0, fontSize: 24, fontWeight: 700, color: "#1F2937" },
-  metricsRow: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 180px))", gap: 10 },
-  metricCard: { borderRadius: 18, border: "1px solid #DDE6F0", background: "rgba(255,255,255,0.88)", padding: 14 },
-  metricPrimary: { borderColor: "#C9DDFC", background: "#EEF5FF" },
-  metricWarning: { borderColor: "#F8D1AA", background: "#FFF5E8" },
-  metricSuccess: { borderColor: "#CDE8D6", background: "#EEF8F2" },
-  metricValue: { fontSize: 24, fontWeight: 700, color: "#1F2937" },
-  metricLabel: { marginTop: 4, fontSize: 12.5, color: "#667085" },
-  errorAlert: { background: "#FFF4F2", border: "1px solid #F3C9C5", color: "#912018", borderRadius: 14, padding: "12px 14px", fontSize: 13.5, fontWeight: 600 },
-  successAlert: { background: "#EEF8F2", border: "1px solid #CDE8D6", color: "#116032", borderRadius: 14, padding: "12px 14px", fontSize: 13.5, fontWeight: 600 },
-  filterCard: { background: "rgba(255,255,255,0.94)", border: "1px solid rgba(217,217,217,0.96)", borderRadius: 20, padding: 18, display: "grid", gap: 14 },
-  filterGrid: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 },
-  label: { display: "block", marginBottom: 6, fontSize: 13.5, fontWeight: 600, color: "#344054" },
-  input: { width: "100%", padding: "12px 13px", borderRadius: 12, border: "1px solid #C9D2DC", background: "#FFFFFF", color: "#1F2937", fontSize: 14.5, outline: "none", boxSizing: "border-box" },
-  filterActions: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" },
-  filterMeta: { marginLeft: "auto", fontSize: 13, color: "#667085", fontWeight: 600 },
-  primaryButton: { background: "linear-gradient(135deg, #0057B8 0%, #0A6AD7 100%)", color: "#FFFFFF", border: "none", borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
-  secondaryButton: { background: "#FFFFFF", color: "#344054", border: "1px solid #D0D5DD", borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
-  loadingCard: { background: "#FFFFFF", border: "1px solid #D9D9D9", borderRadius: 18, padding: 24, textAlign: "center", fontSize: 14, fontWeight: 600, color: "#475467" },
-  sections: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 16, alignItems: "start" },
-  sectionCard: { borderRadius: 24, padding: 18, display: "grid", gap: 16, border: "1px solid rgba(217,217,217,0.96)" },
-  sectionCardPrimary: { background: "#0A6AD7", borderColor: "#0A6AD7" },
-  sectionCardWarning: { background: "#D92D20", borderColor: "#D92D20" },
-  sectionCardSuccess: { background: "#169C4B", borderColor: "#169C4B" },
-  sectionToggle: { background: "transparent", border: "none", padding: 0, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, width: "100%", cursor: "pointer", textAlign: "left" },
-  sectionHeaderContent: { display: "flex", alignItems: "flex-start", gap: 12 },
-  chevron: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, borderRadius: 999, background: "rgba(255,255,255,0.16)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.28)", transition: "transform 180ms ease" },
-  sectionTitle: { margin: 0, fontSize: 18, fontWeight: 800, color: "#FFFFFF" },
-  countBadge: { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 34, height: 30, borderRadius: 999, fontSize: 13, fontWeight: 800, padding: "0 10px", border: "1px solid rgba(255,255,255,0.24)" },
-  countBadgePrimary: { background: "rgba(255,255,255,0.18)", color: "#FFFFFF" },
-  countBadgeWarning: { background: "rgba(255,255,255,0.18)", color: "#FFFFFF" },
-  countBadgeSuccess: { background: "rgba(255,255,255,0.18)", color: "#FFFFFF" },
-  emptyState: { borderRadius: 16, border: "1px dashed rgba(255,255,255,0.32)", padding: 28, textAlign: "center", fontSize: 14, color: "rgba(255,255,255,0.86)", background: "rgba(255,255,255,0.08)" },
-  cardGrid: { display: "grid", gap: 16 },
-  itemCard: { border: "1px solid rgba(255,255,255,0.75)", borderRadius: 22, padding: 18, display: "grid", gap: 14, background: "#FFFFFF" },
-  itemCardPrimary: { borderColor: "#7CB3F4" },
-  itemCardWarning: { borderColor: "#F3A6A0" },
-  itemCardSuccess: { borderColor: "#8BDBAE" },
-  itemHeader: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 },
-  codeBadge: { display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "6px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: "#EAF2FF", color: "#0057B8", border: "1px solid #C9DDFC", marginBottom: 8 },
-  itemTitle: { fontSize: 16, fontWeight: 700, color: "#1F2937" },
-  itemSubTitle: { marginTop: 4, fontSize: 13.5, color: "#667085" },
-  viewButton: { display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#FFFFFF", color: "#344054", border: "1px solid #D0D5DD", borderRadius: 10, padding: "7px 11px", fontSize: 12.5, fontWeight: 600, textDecoration: "none", flexShrink: 0 },
-  infoGrid: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 },
-  infoBlock: { background: "#F9FAFB", border: "1px solid #EAECF0", borderRadius: 14, padding: 12 },
-  infoLabel: { fontSize: 11.5, textTransform: "uppercase", letterSpacing: 0.32, color: "#667085", fontWeight: 700 },
-  infoValue: { marginTop: 6, fontSize: 14, color: "#1F2937", fontWeight: 600, lineHeight: 1.45 },
-  copyBlock: { borderTop: "1px solid #F2F4F7", paddingTop: 12 },
-  copyLabel: { fontSize: 12, color: "#667085", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.28, marginBottom: 6 },
-  copyText: { fontSize: 14, color: "#344054", lineHeight: 1.6, whiteSpace: "pre-wrap" },
-  cardFooter: { borderTop: "1px solid #F2F4F7", paddingTop: 14 },
-  actionColumn: { display: "grid", gap: 12 },
-  inlineActions: { display: "flex", gap: 10, flexWrap: "wrap" },
-  primarySmallButton: { background: "linear-gradient(135deg, #0057B8 0%, #0A6AD7 100%)", color: "#FFFFFF", border: "none", borderRadius: 10, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" },
-  secondarySmallButton: { background: "#FFFFFF", color: "#344054", border: "1px solid #D0D5DD", borderRadius: 10, padding: "9px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
-  successSmallButton: { background: "#EEF8F2", color: "#116032", border: "1px solid #CDE8D6", borderRadius: 10, padding: "9px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" },
-  metaPanel: { display: "grid", gap: 8, background: "linear-gradient(180deg, #FFF4BF 0%, #FFE073 100%)", border: "1px solid #EAB308", borderRadius: 16, padding: 14, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.45)" },
-  metaLine: { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" },
-  metaLabel: { fontSize: 12.5, color: "#7A4A00", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.28 },
-  metaValue: { fontSize: 13, color: "#1F2937", fontWeight: 700, textAlign: "right" },
+const styles: Record<string, CSSProperties> = {
+  page: {
+    display: "grid",
+    gap: 24,
+  },
+  header: {
+    display: "grid",
+    gap: 18,
+  },
+  titleBlock: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 18,
+    flexWrap: "wrap",
+  },
+  title: {
+    margin: 0,
+    fontSize: 30,
+    lineHeight: 1.1,
+    color: "#101828",
+  },
+  description: {
+    margin: "6px 0 0",
+    color: "#475467",
+    fontSize: 14,
+  },
+  backLink: {
+    textDecoration: "none",
+    color: "#0A6AD7",
+    fontWeight: 700,
+    fontSize: 14,
+  },
+  errorAlert: {
+    border: "1px solid #F04438",
+    background: "#FEF3F2",
+    color: "#B42318",
+    borderRadius: 16,
+    padding: "14px 16px",
+    fontSize: 14,
+  },
+  successAlert: {
+    border: "1px solid #12B76A",
+    background: "#ECFDF3",
+    color: "#027A48",
+    borderRadius: 16,
+    padding: "14px 16px",
+    fontSize: 14,
+  },
+  filterCard: {
+    border: "1px solid #D0D5DD",
+    borderRadius: 20,
+    background: "#FFFFFF",
+    padding: 20,
+    display: "grid",
+    gap: 18,
+  },
+  filterToggle: {
+    border: "none",
+    background: "transparent",
+    padding: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+    cursor: "pointer",
+    color: "#101828",
+  },
+  filterToggleCopy: {
+    display: "grid",
+    gap: 4,
+    textAlign: "left",
+  },
+  filterToggleTitle: {
+    fontSize: 16,
+    fontWeight: 800,
+    color: "#101828",
+  },
+  filterToggleMeta: {
+    fontSize: 13,
+    color: "#667085",
+  },
+  filterChevron: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    border: "1px solid #D0D5DD",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#344054",
+    transition: "transform 160ms ease",
+    flexShrink: 0,
+  },
+  filterGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: 16,
+  },
+  label: {
+    display: "block",
+    marginBottom: 6,
+    fontSize: 12,
+    fontWeight: 700,
+    color: "#344054",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  input: {
+    width: "100%",
+    border: "1px solid #D0D5DD",
+    borderRadius: 12,
+    padding: "11px 13px",
+    fontSize: 14,
+    color: "#101828",
+    background: "#FFFFFF",
+    boxSizing: "border-box",
+  },
+  filterActions: {
+    display: "flex",
+    gap: 12,
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  primaryButton: {
+    border: "none",
+    borderRadius: 12,
+    padding: "11px 16px",
+    background: "#0A6AD7",
+    color: "#FFFFFF",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  secondaryButton: {
+    border: "1px solid #D0D5DD",
+    borderRadius: 12,
+    padding: "11px 16px",
+    background: "#FFFFFF",
+    color: "#344054",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  filterMeta: {
+    color: "#667085",
+    fontSize: 13,
+    marginLeft: "auto",
+  },
+  filterCollapsedSummary: {
+    color: "#667085",
+    fontSize: 13,
+  },
+  loadingCard: {
+    border: "1px solid #D0D5DD",
+    borderRadius: 18,
+    background: "#FFFFFF",
+    padding: 22,
+    color: "#475467",
+    fontSize: 14,
+  },
+  listSection: {
+    border: "1px solid #D0D5DD",
+    borderRadius: 24,
+    overflow: "hidden",
+    background: "#FFFFFF",
+  },
+  listHeader: {
+    padding: "20px 22px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 16,
+    flexWrap: "wrap",
+  },
+  listHeaderDanger: {
+    background: "#FEE4E2",
+  },
+  listHeaderPrimary: {
+    background: "#DCEEFF",
+  },
+  listHeaderSuccess: {
+    background: "#DFF7E7",
+  },
+  listHeaderText: {
+    display: "grid",
+    gap: 4,
+  },
+  listTitle: {
+    margin: 0,
+    fontSize: 22,
+    color: "#101828",
+  },
+  listSubtitle: {
+    margin: 0,
+    color: "#475467",
+    fontSize: 14,
+  },
+  countBadge: {
+    minWidth: 48,
+    height: 48,
+    borderRadius: 14,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 20,
+    fontWeight: 800,
+  },
+  countBadgeDanger: {
+    background: "#D92D20",
+    color: "#FFFFFF",
+  },
+  countBadgePrimary: {
+    background: "#0A6AD7",
+    color: "#FFFFFF",
+  },
+  countBadgeSuccess: {
+    background: "#169C4B",
+    color: "#FFFFFF",
+  },
+  emptyState: {
+    padding: 24,
+    color: "#475467",
+    fontSize: 14,
+  },
+  itemsList: {
+    display: "grid",
+    gap: 16,
+    padding: 18,
+  },
+  itemCard: {
+    border: "1px solid #D0D5DD",
+    borderRadius: 20,
+    padding: 18,
+    display: "grid",
+    gap: 16,
+    background: "#FFFFFF",
+  },
+  itemHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 16,
+    flexWrap: "wrap",
+  },
+  itemHeaderCopy: {
+    display: "grid",
+    gap: 8,
+  },
+  codeBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    borderRadius: 999,
+    background: "#EEF2F6",
+    color: "#344054",
+    padding: "4px 10px",
+    fontSize: 12,
+    fontWeight: 800,
+    width: "fit-content",
+  },
+  itemTitle: {
+    margin: 0,
+    fontSize: 20,
+    lineHeight: 1.25,
+    color: "#101828",
+  },
+  itemSubtitle: {
+    color: "#475467",
+    fontSize: 14,
+  },
+  viewButton: {
+    textDecoration: "none",
+    border: "1px solid #D0D5DD",
+    borderRadius: 12,
+    padding: "10px 14px",
+    color: "#344054",
+    fontWeight: 700,
+    fontSize: 14,
+    background: "#FFFFFF",
+  },
+  infoGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 12,
+  },
+  infoBlock: {
+    border: "1px solid #EAECF0",
+    borderRadius: 14,
+    padding: 14,
+    display: "grid",
+    gap: 6,
+    background: "#F9FAFB",
+  },
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: 800,
+    color: "#667085",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: "#101828",
+    fontWeight: 600,
+  },
+  copyBlock: {
+    display: "grid",
+    gap: 6,
+  },
+  copyLabel: {
+    fontSize: 12,
+    fontWeight: 800,
+    color: "#667085",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  copyText: {
+    fontSize: 14,
+    color: "#101828",
+    lineHeight: 1.5,
+  },
+  cardFooter: {
+    display: "grid",
+    gap: 14,
+    paddingTop: 6,
+  },
+  inlineActions: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  primarySmallButton: {
+    border: "none",
+    borderRadius: 12,
+    padding: "10px 14px",
+    background: "#0A6AD7",
+    color: "#FFFFFF",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  secondarySmallButton: {
+    border: "1px solid #D0D5DD",
+    borderRadius: 12,
+    padding: "10px 14px",
+    background: "#FFFFFF",
+    color: "#344054",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  successSmallButton: {
+    border: "none",
+    borderRadius: 12,
+    padding: "10px 14px",
+    background: "#169C4B",
+    color: "#FFFFFF",
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  metaPanel: {
+    border: "1px solid #EAECF0",
+    borderRadius: 16,
+    background: "#F9FAFB",
+    padding: 14,
+    display: "grid",
+    gap: 8,
+  },
+  metaLine: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 16,
+    fontSize: 13,
+  },
+  metaLabel: {
+    color: "#667085",
+    fontWeight: 700,
+  },
+  metaValue: {
+    color: "#101828",
+    fontWeight: 600,
+    textAlign: "right",
+  },
 };

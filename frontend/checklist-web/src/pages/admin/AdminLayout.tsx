@@ -23,6 +23,7 @@ const pageTitles: Record<string, string> = {
   "/admin/dashboard": "Visao Geral",
   "/admin/checklists": "Checklists",
   "/admin/itens-nao-ok": "Itens nao OK",
+  "/admin/itens-nao-ok/lista": "Itens nao OK",
   "/admin/fechamentos-mensais": "Fechamentos Mensais",
   "/admin/categorias": "Categorias",
   "/admin/templates": "Templates",
