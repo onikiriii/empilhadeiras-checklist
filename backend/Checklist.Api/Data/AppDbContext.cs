@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<ChecklistModel> Checklists { get; set; } = null!;
     public DbSet<ChecklistItem> ChecklistItens { get; set; } = null!;
     public DbSet<ChecklistItemAcao> ChecklistItensAcoes { get; set; } = null!;
+    public DbSet<ChecklistItemAcaoHistorico> ChecklistItensAcoesHistorico { get; set; } = null!;
     public DbSet<Setor> Setores { get; set; } = null!;
     public DbSet<UsuarioSupervisor> UsuariosSupervisores { get; set; } = null!;
     public DbSet<FechamentoChecklistMensal> FechamentosChecklistMensais { get; set; } = null!;
@@ -136,6 +137,9 @@ public class AppDbContext : DbContext
             e.Property(x => x.Descricao).HasMaxLength(200).IsRequired();
             e.Property(x => x.Instrucao).HasMaxLength(500);
             e.Property(x => x.Observacao).HasMaxLength(500);
+            e.Property(x => x.ImagemNokBase64).HasColumnType("longtext");
+            e.Property(x => x.ImagemNokNomeArquivo).HasMaxLength(260);
+            e.Property(x => x.ImagemNokMimeType).HasMaxLength(120);
 
             e.HasOne(x => x.Checklist)
                 .WithMany(c => c.Itens)
@@ -151,6 +155,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ChecklistItemAcao>(e =>
         {
             e.Property(x => x.ObservacaoAtribuicao).HasMaxLength(1000);
+            e.Property(x => x.ObservacaoResponsavel).HasMaxLength(2000);
+            e.Property(x => x.PercentualConclusao).HasDefaultValue(0);
             e.Property(x => x.Status).HasConversion<int>();
 
             e.HasIndex(x => x.ChecklistItemId).IsUnique();
@@ -178,6 +184,24 @@ public class AppDbContext : DbContext
             e.HasOne(x => x.ConcluidoPorSupervisor)
                 .WithMany()
                 .HasForeignKey(x => x.ConcluidoPorSupervisorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasMany(x => x.Historico)
+                .WithOne(x => x.ChecklistItemAcao)
+                .HasForeignKey(x => x.ChecklistItemAcaoId)
+                .HasConstraintName("FK_CIAHistorico_Acao")
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ChecklistItemAcaoHistorico>(e =>
+        {
+            e.Property(x => x.Titulo).HasMaxLength(160).IsRequired();
+            e.Property(x => x.Descricao).HasMaxLength(4000).IsRequired();
+
+            e.HasOne(x => x.CriadoPorSupervisor)
+                .WithMany()
+                .HasForeignKey(x => x.CriadoPorSupervisorId)
+                .HasConstraintName("FK_CIAHistorico_Supervisor")
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

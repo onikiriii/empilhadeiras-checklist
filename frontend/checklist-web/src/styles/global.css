@@ -871,6 +871,65 @@ tbody tr:last-child td {
   transform: none;
 }
 
+.cf-scanner-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(15, 23, 42, 0.64);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.cf-scanner-modal {
+  width: min(100%, 460px);
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(217, 225, 234, 0.96);
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.22);
+}
+
+.cf-scanner-video-shell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid #d9e1ea;
+  background: #0f172a;
+  min-height: 280px;
+}
+
+.cf-scanner-video {
+  display: block;
+  width: 100%;
+  height: 280px;
+  object-fit: cover;
+}
+
+.cf-scanner-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.38);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  padding: 16px;
+}
+
+.cf-scanner-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .cf-mobile-button-icon {
   display: flex;
   align-items: center;
@@ -1672,6 +1731,77 @@ tbody tr:last-child td {
 .cf-checklist-item-note {
   display: grid;
   gap: 10px;
+}
+
+.cf-checklist-upload-block {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px dashed #c3d5ea;
+  border-radius: 18px;
+  background: #f8fbff;
+}
+
+.cf-checklist-upload-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cf-checklist-upload-meta {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--cf-text-muted);
+}
+
+.cf-checklist-upload-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid #c7d9ef;
+  background: #ffffff;
+  color: var(--cf-blue-700);
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cf-checklist-upload-input {
+  display: none;
+}
+
+.cf-checklist-image-preview {
+  display: grid;
+  gap: 10px;
+}
+
+.cf-checklist-image-preview-img {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid #d6e3f1;
+  background: #ffffff;
+}
+
+.cf-checklist-image-preview-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cf-checklist-image-preview-name {
+  font-size: 12.5px;
+  color: var(--cf-text-muted);
+  font-weight: 700;
+  word-break: break-word;
 }
 
 .cf-checklist-primary-action {
