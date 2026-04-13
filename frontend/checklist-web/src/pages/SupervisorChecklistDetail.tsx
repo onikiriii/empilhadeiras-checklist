@@ -10,6 +10,9 @@ type ChecklistItem = {
   instrucao: string;
   status: "OK" | "NOK" | "NA";
   observacao: string;
+  imagemNokBase64?: string | null;
+  imagemNokNomeArquivo?: string | null;
+  imagemNokMimeType?: string | null;
 };
 
 type ChecklistDetail = {
@@ -272,6 +275,18 @@ export default function SupervisorChecklistDetail() {
                             {item.observacao ? (
                               <div style={styles.documentObservationBlock}>
                                 <span style={styles.documentObservationText}>{item.observacao}</span>
+                              </div>
+                            ) : null}
+                            {item.imagemNokBase64 ? (
+                              <div style={styles.documentEvidenceBlock}>
+                                <div style={styles.documentEvidenceLabel}>
+                                  Evidencia visual{item.imagemNokNomeArquivo ? ` - ${item.imagemNokNomeArquivo}` : ""}
+                                </div>
+                                <img
+                                  src={item.imagemNokBase64}
+                                  alt={`Imagem do item ${item.ordem}`}
+                                  style={styles.documentEvidenceImage}
+                                />
                               </div>
                             ) : null}
                           </td>
@@ -824,6 +839,28 @@ const styles: Record<string, React.CSSProperties> = {
   documentObservationBlock: {
     marginTop: 4,
     display: "block",
+  },
+  documentEvidenceBlock: {
+    marginTop: 8,
+    display: "grid",
+    gap: 6,
+  },
+  documentEvidenceLabel: {
+    fontSize: 10.5,
+    color: "#475569",
+    fontWeight: 700,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  documentEvidenceImage: {
+    display: "block",
+    width: "100%",
+    maxWidth: 220,
+    maxHeight: 180,
+    objectFit: "cover",
+    borderRadius: 10,
+    border: "1px solid #CBD5E1",
+    background: "#FFFFFF",
   },
   primaryButton: {
     background: "linear-gradient(135deg, #0057B8 0%, #0A6AD7 100%)",

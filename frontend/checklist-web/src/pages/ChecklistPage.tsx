@@ -14,6 +14,9 @@ type ItemForm = {
   templateId: string;
   status: ItemStatus;
   observacao?: string;
+  imagemNokBase64?: string;
+  imagemNokNomeArquivo?: string;
+  imagemNokMimeType?: string;
 };
 
 type OperadorSugestao = {
@@ -166,6 +169,9 @@ export function ChecklistPage() {
         templateId,
         status,
         observacao: status === "NOK" ? current[templateId]?.observacao ?? "" : "",
+        imagemNokBase64: status === "NOK" ? current[templateId]?.imagemNokBase64 ?? "" : "",
+        imagemNokNomeArquivo: status === "NOK" ? current[templateId]?.imagemNokNomeArquivo ?? "" : "",
+        imagemNokMimeType: status === "NOK" ? current[templateId]?.imagemNokMimeType ?? "" : "",
       },
     }));
   }
@@ -180,6 +186,42 @@ export function ChecklistPage() {
         observacao,
       },
     }));
+  }
+
+  function setImagemNok(
+    templateId: string,
+    image: {
+      base64: string;
+      nomeArquivo: string;
+      mimeType: string;
+    } | null,
+  ) {
+    invalidateSignature();
+    setItens((current) => ({
+      ...current,
+      [templateId]: {
+        ...current[templateId],
+        templateId,
+        imagemNokBase64: image?.base64 ?? "",
+        imagemNokNomeArquivo: image?.nomeArquivo ?? "",
+        imagemNokMimeType: image?.mimeType ?? "",
+      },
+    }));
+  }
+
+  async function handleImagemNokChange(templateId: string, file: File | null) {
+    if (!file) return;
+
+    try {
+      const base64 = await fileToDataUrl(file);
+      setImagemNok(templateId, {
+        base64,
+        nomeArquivo: file.name,
+        mimeType: file.type || "image/jpeg",
+      });
+    } catch (e: unknown) {
+      setError(extractErrorMessage(e, "Nao foi possivel carregar a imagem do item NOK."));
+    }
   }
 
   function capturarAssinatura() {
@@ -232,6 +274,16 @@ export function ChecklistPage() {
       return;
     }
 
+    const itemNokSemObservacao = templates.find((template) => {
+      const item = itens[template.id];
+      return item?.status === "NOK" && !item.observacao?.trim();
+    });
+
+    if (itemNokSemObservacao) {
+      setError(`O item ${itemNokSemObservacao.ordem} exige observacao obrigatoria quando marcado como NOK.`);
+      return;
+    }
+
     const assinatura = capturarAssinatura();
     if (!assinatura) {
       setError("O operador precisa assinar antes de enviar.");
@@ -245,6 +297,9 @@ export function ChecklistPage() {
         templateId: template.id,
         status: itens[template.id].status,
         observacao: itens[template.id].status === "NOK" ? itens[template.id].observacao ?? "" : null,
+        imagemNokBase64: itens[template.id].status === "NOK" ? itens[template.id].imagemNokBase64 ?? null : null,
+        imagemNokNomeArquivo: itens[template.id].status === "NOK" ? itens[template.id].imagemNokNomeArquivo ?? null : null,
+        imagemNokMimeType: itens[template.id].status === "NOK" ? itens[template.id].imagemNokMimeType ?? null : null,
       })),
       observacoesGerais: obsGerais || null,
       assinaturaOperadorBase64: assinatura,
@@ -524,6 +579,65 @@ export function ChecklistPage() {
 
                     {current === "NOK" ? (
                       <div className="cf-checklist-item-note">
+                        <div>
+                          <label className="cf-field-label">Observacao do item</label>
+                          <textarea
+                            rows={3}
+                            value={itens[template.id]?.observacao ?? ""}
+                            onChange={(e) => setObs(template.id, e.target.value)}
+                            placeholder="Descreva a nao conformidade"
+                            className="cf-mobile-textarea"
+                          />
+                        </div>
+
+                        <div className="cf-checklist-upload-block">
+                          <div className="cf-checklist-upload-head">
+                            <div>
+                              <label className="cf-field-label">Imagem do item NOK</label>
+                              <div className="cf-checklist-upload-meta">
+                                Anexe uma foto para registrar visualmente a nao conformidade.
+                              </div>
+                            </div>
+                          </div>
+
+                          <label className="cf-checklist-upload-button">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              onChange={(e) => void handleImagemNokChange(template.id, e.target.files?.[0] ?? null)}
+                              className="cf-checklist-upload-input"
+                            />
+                            Selecionar ou tirar foto
+                          </label>
+
+                          {itens[template.id]?.imagemNokBase64 ? (
+                            <div className="cf-checklist-image-preview">
+                              <img
+                                src={itens[template.id]?.imagemNokBase64}
+                                alt={`Imagem do item ${template.ordem}`}
+                                className="cf-checklist-image-preview-img"
+                              />
+                              <div className="cf-checklist-image-preview-footer">
+                                <span className="cf-checklist-image-preview-name">
+                                  {itens[template.id]?.imagemNokNomeArquivo || "imagem-nok.jpg"}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="cf-button cf-button-secondary cf-button-small"
+                                  onClick={() => setImagemNok(template.id, null)}
+                                >
+                                  Remover imagem
+                                </button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {false && current === "NOK" ? (
+                      <div className="cf-checklist-item-note">
                         <label className="cf-field-label">Observação do item</label>
                         <input
                           value={itens[template.id]?.observacao ?? ""}
@@ -630,6 +744,24 @@ function extractErrorMessage(error: unknown, fallback: string) {
 
   if (error instanceof Error) return error.message;
   return fallback;
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("Nao foi possivel converter a imagem selecionada."));
+    };
+
+    reader.onerror = () => reject(new Error("Nao foi possivel ler a imagem selecionada."));
+    reader.readAsDataURL(file);
+  });
 }
 
 function QrIcon() {

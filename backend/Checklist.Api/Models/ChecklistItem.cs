@@ -16,6 +16,9 @@ public class ChecklistItem
 
     public ItemStatus Status { get; set; } = ItemStatus.NaoVerificado;
     public string? Observacao { get; set; }  // opcional do operador
+    public string? ImagemNokBase64 { get; set; }
+    public string? ImagemNokNomeArquivo { get; set; }
+    public string? ImagemNokMimeType { get; set; }
 
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
 

@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { BrowserQRCodeReader } from "@zxing/browser";
+import { NotFoundException } from "@zxing/library";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import "../styles/global.css";
@@ -11,14 +13,25 @@ type EquipamentoDto = {
   qrId: string;
 };
 
+type ScannerControls = {
+  stop: () => void;
+};
+
 export default function HomePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const readerRef = useRef<BrowserQRCodeReader | null>(null);
+  const controlsRef = useRef<ScannerControls | null>(null);
+  const scannerResolvedRef = useRef(false);
 
   const [qrId, setQrId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerLoading, setScannerLoading] = useState(false);
+  const [scannerError, setScannerError] = useState("");
 
   const sucesso = searchParams.get("sucesso");
 
@@ -32,11 +45,71 @@ export default function HomePage() {
     return () => window.clearTimeout(timer);
   }, [navigate, sucesso]);
 
-  async function handleBuscar() {
-    const value = qrId.trim();
+  useEffect(() => {
+    if (!scannerOpen) {
+      stopScannerSession();
+      return;
+    }
+
+    if (!videoRef.current) {
+      return;
+    }
+
+    let cancelled = false;
+    scannerResolvedRef.current = false;
+    setScannerLoading(true);
+    setScannerError("");
+
+    const reader = new BrowserQRCodeReader();
+    readerRef.current = reader;
+
+    const startScanner = async () => {
+      try {
+        const controls = await reader.decodeFromVideoDevice(
+          undefined,
+          videoRef.current!,
+          (result, scanError) => {
+            if (result) {
+              void handleDecodedQr(result.getText());
+              return;
+            }
+
+            if (scanError && !(scanError instanceof NotFoundException) && !scannerResolvedRef.current) {
+              setScannerError("Nao foi possivel interpretar o QR code da camera.");
+            }
+          },
+        );
+
+        if (cancelled) {
+          controls.stop();
+          return;
+        }
+
+        controlsRef.current = controls;
+      } catch (scanError) {
+        if (!cancelled) {
+          setScannerError(extractScannerMessage(scanError));
+        }
+      } finally {
+        if (!cancelled) {
+          setScannerLoading(false);
+        }
+      }
+    };
+
+    void startScanner();
+
+    return () => {
+      cancelled = true;
+      stopScannerSession();
+    };
+  }, [scannerOpen]);
+
+  async function handleBuscar(valueOverride?: string) {
+    const value = (valueOverride ?? qrId).trim();
 
     if (!value) {
-      setError("Digite um QR ID válido.");
+      setError("Digite um QR ID valido.");
       return;
     }
 
@@ -47,23 +120,71 @@ export default function HomePage() {
       await api.get<EquipamentoDto>(`/api/equipamentos/por-qr/${value}`);
       navigate(`/checklist/${value}`);
     } catch (e: any) {
-      setError(e?.message ?? "Equipamento não encontrado para este QR ID.");
+      setError(e?.message ?? "Equipamento nao encontrado para este QR ID.");
     } finally {
       setLoading(false);
     }
   }
 
   function handleOpenCamera() {
-    fileInputRef.current?.click();
+    setError("");
+    setScannerError("");
+    setScannerOpen(true);
   }
 
-  function handleCameraFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleCloseScanner() {
+    stopScannerSession();
+    setScannerOpen(false);
+    setScannerLoading(false);
+    setScannerError("");
+  }
+
+  function stopScannerSession() {
+    controlsRef.current?.stop();
+    controlsRef.current = null;
+    readerRef.current = null;
+
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
+    }
+  }
+
+  async function handleDecodedQr(decodedValue: string) {
+    const normalizedValue = decodedValue.trim();
+    if (!normalizedValue || scannerResolvedRef.current) return;
+
+    scannerResolvedRef.current = true;
+    setQrId(normalizedValue);
+    handleCloseScanner();
+    await handleBuscar(normalizedValue);
+  }
+
+  async function handleCameraFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    event.target.value = "";
 
     if (!file) return;
 
-    setError("Câmera aberta com sucesso. Falta integrar a leitura automática do QR code.");
-    event.target.value = "";
+    setScannerLoading(true);
+    setScannerError("");
+
+    try {
+      const reader = readerRef.current ?? new BrowserQRCodeReader();
+      const objectUrl = URL.createObjectURL(file);
+
+      try {
+        const result = await reader.decodeFromImageUrl(objectUrl);
+        await handleDecodedQr(result.getText());
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    } catch (scanError) {
+      setScannerError(extractScannerMessage(scanError));
+    } finally {
+      setScannerLoading(false);
+    }
   }
 
   return (
@@ -80,7 +201,7 @@ export default function HomePage() {
 
             <div>
               <div className="cf-mobile-brand-name">CheckFlow</div>
-              <div className="cf-mobile-brand-meta">Operação de checklist</div>
+              <div className="cf-mobile-brand-meta">Operacao de checklist</div>
             </div>
           </div>
 
@@ -97,7 +218,7 @@ export default function HomePage() {
 
         {sucesso === "1" ? (
           <div className="cf-alert cf-alert-success">
-            Checklist enviado com sucesso. Você já pode iniciar uma nova inspeção.
+            Checklist enviado com sucesso. Voce ja pode iniciar uma nova inspecao.
           </div>
         ) : null}
 
@@ -125,7 +246,7 @@ export default function HomePage() {
                   value={qrId}
                   onChange={(e) => setQrId(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void handleBuscar()}
-                  placeholder="Digite o código"
+                  placeholder="Digite o codigo"
                   className="cf-mobile-input with-leading with-trailing"
                 />
 
@@ -133,8 +254,8 @@ export default function HomePage() {
                   type="button"
                   className="cf-mobile-icon-button"
                   onClick={handleOpenCamera}
-                  aria-label="Abrir câmera"
-                  title="Abrir câmera"
+                  aria-label="Abrir leitor de QR code"
+                  title="Abrir leitor de QR code"
                 >
                   <CameraIcon />
                 </button>
@@ -145,7 +266,6 @@ export default function HomePage() {
               ref={fileInputRef}
               type="file"
               accept="image/*"
-              capture="environment"
               onChange={handleCameraFileChange}
               style={{ display: "none" }}
             />
@@ -166,8 +286,60 @@ export default function HomePage() {
           </div>
         </section>
       </div>
+
+      {scannerOpen ? (
+        <div className="cf-scanner-modal-backdrop" role="dialog" aria-modal="true">
+          <div className="cf-scanner-modal">
+            <div className="cf-mobile-panel-header">
+              <div className="cf-mobile-panel-icon">
+                <ScanIcon />
+              </div>
+
+              <div>
+                <h2 className="cf-mobile-panel-title">Leitura de QR code</h2>
+                <p className="cf-mobile-panel-text">
+                  Aponte a camera para o QR code do equipamento ou envie uma imagem.
+                </p>
+              </div>
+            </div>
+
+            <div className="cf-scanner-video-shell">
+              <video ref={videoRef} className="cf-scanner-video" muted playsInline autoPlay />
+              {scannerLoading ? <div className="cf-scanner-overlay">Inicializando camera...</div> : null}
+            </div>
+
+            {scannerError ? <div className="cf-alert cf-alert-error">{scannerError}</div> : null}
+
+            <div className="cf-scanner-actions">
+              <button
+                type="button"
+                className="cf-button cf-button-secondary"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={scannerLoading}
+              >
+                Ler por imagem
+              </button>
+              <button
+                type="button"
+                className="cf-button cf-button-secondary"
+                onClick={handleCloseScanner}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function extractScannerMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return `Nao foi possivel ler o QR code. ${error.message}`;
+  }
+
+  return "Nao foi possivel ler o QR code pela camera ou pela imagem enviada.";
 }
 
 function QrIcon() {

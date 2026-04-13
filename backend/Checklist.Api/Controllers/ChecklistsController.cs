@@ -65,6 +65,20 @@ public class ChecklistsController : ControllerBase
         if (req.Itens.Any(i => !templateIds.Contains(i.TemplateId)))
             return BadRequest(new { message = "Um ou mais itens nao correspondem aos templates da categoria." });
 
+        var itemNokSemObservacao = req.Itens.FirstOrDefault(i =>
+            i.Status == ItemStatus.NOK &&
+            string.IsNullOrWhiteSpace(i.Observacao));
+
+        if (itemNokSemObservacao is not null)
+            return BadRequest(new { message = "Itens marcados como NOK exigem observacao obrigatoria." });
+
+        var itemComImagemInvalida = req.Itens.FirstOrDefault(i =>
+            !string.IsNullOrWhiteSpace(i.ImagemNokBase64) &&
+            !IsValidChecklistImagePayload(i.ImagemNokBase64!, i.ImagemNokMimeType));
+
+        if (itemComImagemInvalida is not null)
+            return BadRequest(new { message = "A imagem anexada em um item NOK esta invalida ou excede o limite suportado." });
+
         var proximaDataReferencia = dataReferencia.AddDays(1);
 
         var checklistExistenteHoje = await _db.Checklists
@@ -100,7 +114,10 @@ public class ChecklistsController : ControllerBase
                 Descricao = template.Descricao,
                 Instrucao = template.Instrucao,
                 Status = itemReq.Status,
-                Observacao = string.IsNullOrWhiteSpace(itemReq.Observacao) ? null : itemReq.Observacao.Trim()
+                Observacao = string.IsNullOrWhiteSpace(itemReq.Observacao) ? null : itemReq.Observacao.Trim(),
+                ImagemNokBase64 = itemReq.Status == ItemStatus.NOK ? NormalizeOptionalBase64(itemReq.ImagemNokBase64) : null,
+                ImagemNokNomeArquivo = itemReq.Status == ItemStatus.NOK ? NormalizeOptionalText(itemReq.ImagemNokNomeArquivo) : null,
+                ImagemNokMimeType = itemReq.Status == ItemStatus.NOK ? NormalizeOptionalText(itemReq.ImagemNokMimeType) : null
             });
         }
 
@@ -169,8 +186,40 @@ public class ChecklistsController : ControllerBase
                 i.Descricao,
                 i.Instrucao,
                 i.Status,
-                i.Observacao
+                i.Observacao,
+                i.ImagemNokBase64,
+                i.ImagemNokNomeArquivo,
+                i.ImagemNokMimeType
             )).ToList()
         );
+    }
+
+    private static bool IsValidChecklistImagePayload(string imageBase64, string? mimeType)
+    {
+        var normalizedImage = NormalizeOptionalBase64(imageBase64);
+        var normalizedMimeType = NormalizeOptionalText(mimeType);
+
+        if (string.IsNullOrWhiteSpace(normalizedImage))
+            return false;
+
+        if (!normalizedImage.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (normalizedMimeType is not null && !normalizedMimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return normalizedImage.Length <= 8_000_000;
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+    }
+
+    private static string? NormalizeOptionalBase64(string? value)
+    {
+        var normalized = value?.Trim();
+        return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
     }
 }

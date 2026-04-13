@@ -25,7 +25,10 @@ public record ChecklistItemDto(
     string Descricao,
     string? Instrucao,
     ItemStatus Status,
-    string? Observacao
+    string? Observacao,
+    string? ImagemNokBase64,
+    string? ImagemNokNomeArquivo,
+    string? ImagemNokMimeType
 );
 
 public record EnviarChecklistRequest(
@@ -39,7 +42,10 @@ public record EnviarChecklistRequest(
 public record EnviarChecklistItemRequest(
     [Required] Guid TemplateId,
     [Required] ItemStatus Status,
-    string? Observacao
+    string? Observacao,
+    string? ImagemNokBase64,
+    string? ImagemNokNomeArquivo,
+    string? ImagemNokMimeType
 );
 
 public record ItemNaoOkDto(
@@ -53,7 +59,10 @@ public record ItemNaoOkDto(
     int Ordem,
     string Descricao,
     string? Instrucao,
-    string? Observacao
+    string? Observacao,
+    string? ImagemNokBase64,
+    string? ImagemNokNomeArquivo,
+    string? ImagemNokMimeType
 );
 
 public record SupervisorResponsavelOptionDto(
@@ -62,6 +71,14 @@ public record SupervisorResponsavelOptionDto(
     string Login,
     Guid SetorId,
     string SetorNome
+);
+
+public record ItemNaoOkHistoricoEntryDto(
+    Guid Id,
+    string Titulo,
+    string Descricao,
+    DateTime CriadoEm,
+    string CriadoPorNomeCompleto
 );
 
 public record ItemNaoOkPainelItemDto(
@@ -78,16 +95,23 @@ public record ItemNaoOkPainelItemDto(
     string Descricao,
     string? Instrucao,
     string? Observacao,
+    string? ImagemNokBase64,
+    string? ImagemNokNomeArquivo,
+    string? ImagemNokMimeType,
     string WorkflowStatus,
     Guid? ResponsavelSupervisorId,
     string? ResponsavelNomeCompleto,
     Guid? ResponsavelSetorId,
     string? ResponsavelSetorNome,
     string? ObservacaoAtribuicao,
+    string? ObservacaoResponsavel,
+    DateTime? DataPrevistaConclusao,
+    int PercentualConclusao,
     DateTime? AprovadoEm,
     string? AprovadoPorNomeCompleto,
     DateTime? ConcluidoEm,
-    string? ConcluidoPorNomeCompleto
+    string? ConcluidoPorNomeCompleto,
+    List<ItemNaoOkHistoricoEntryDto>? Historico
 );
 
 public record ItemNaoOkPainelDto(
@@ -98,5 +122,15 @@ public record ItemNaoOkPainelDto(
 
 public record AtribuirItemNaoOkRequest(
     [Required] Guid ResponsavelSupervisorId,
-    string? ObservacaoAtribuicao
+    string? ObservacaoAtribuicao,
+    string? ObservacaoResponsavel,
+    DateTime? DataPrevistaConclusao,
+    [Range(0, 100)] int PercentualConclusao
+);
+
+public record AtualizarTratativaItemNaoOkRequest(
+    [Required] Guid ResponsavelSupervisorId,
+    string? ObservacaoResponsavel,
+    DateTime? DataPrevistaConclusao,
+    [Range(0, 100)] int PercentualConclusao
 );

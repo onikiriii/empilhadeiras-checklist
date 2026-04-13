@@ -6,7 +6,7 @@ using Checklist.Api.Support;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualBasic;
+using System.Text;
 
 namespace Checklist.Api.Controllers;
 
@@ -85,7 +85,10 @@ public class SupervisorController : ControllerBase
                 i.Descricao,
                 i.Instrucao,
                 i.Status,
-                i.Observacao
+                i.Observacao,
+                i.ImagemNokBase64,
+                i.ImagemNokNomeArquivo,
+                i.ImagemNokMimeType
             )).ToList()
         ));
     }
@@ -267,7 +270,10 @@ public class SupervisorController : ControllerBase
                 i.Ordem,
                 i.Descricao,
                 i.Instrucao,
-                i.Observacao
+                i.Observacao,
+                i.ImagemNokBase64,
+                i.ImagemNokNomeArquivo,
+                i.ImagemNokMimeType
             ))
             .ToListAsync();
 
@@ -302,6 +308,9 @@ public class SupervisorController : ControllerBase
                 .ThenInclude(a => a.AprovadoPorSupervisor)
             .Include(i => i.Acao!)
                 .ThenInclude(a => a.ConcluidoPorSupervisor)
+            .Include(i => i.Acao!)
+                .ThenInclude(a => a.Historico)
+                    .ThenInclude(h => h.CriadoPorSupervisor)
             .Where(i =>
                 i.Status == ItemStatus.NOK &&
                 (
@@ -348,7 +357,7 @@ public class SupervisorController : ControllerBase
             .ThenBy(i => i.Checklist.Equipamento.Codigo)
             .ThenBy(i => i.Ordem)
             .ToListAsync())
-            .Select(ToPainelItemDto)
+            .Select(i => ToPainelItemDto(i, includeHistory: true))
             .ToList();
 
         return Ok(new ItemNaoOkPainelDto(
@@ -382,6 +391,50 @@ public class SupervisorController : ControllerBase
             .ToListAsync();
 
         return Ok(lista);
+    }
+
+    [HttpGet("itens-nao-ok/{checklistItemId:guid}")]
+    public async Task<ActionResult<ItemNaoOkPainelItemDto>> ObterItemNaoOk(Guid checklistItemId)
+    {
+        var setorId = CurrentSupervisorClaims.GetSetorId(User);
+        var supervisorId = CurrentSupervisorClaims.GetSupervisorId(User);
+        if (setorId is null || supervisorId is null)
+            return Unauthorized(new { message = "Supervisor sem contexto valido." });
+
+        var item = await _db.ChecklistItens
+            .AsNoTracking()
+            .Include(i => i.Checklist)
+                .ThenInclude(c => c.Setor)
+            .Include(i => i.Checklist)
+                .ThenInclude(c => c.Equipamento)
+            .Include(i => i.Checklist)
+                .ThenInclude(c => c.Operador)
+            .Include(i => i.Acao!)
+                .ThenInclude(a => a.ResponsavelSupervisor)
+            .Include(i => i.Acao!)
+                .ThenInclude(a => a.ResponsavelSetor)
+            .Include(i => i.Acao!)
+                .ThenInclude(a => a.AprovadoPorSupervisor)
+            .Include(i => i.Acao!)
+                .ThenInclude(a => a.ConcluidoPorSupervisor)
+            .Include(i => i.Acao!)
+                .ThenInclude(a => a.Historico)
+                    .ThenInclude(h => h.CriadoPorSupervisor)
+            .FirstOrDefaultAsync(i =>
+                i.Id == checklistItemId &&
+                i.Status == ItemStatus.NOK &&
+                (
+                    (i.Checklist.SetorId == setorId.Value && i.Acao == null) ||
+                    (i.Acao != null &&
+                     (i.Checklist.SetorId == setorId.Value ||
+                      i.Acao.ResponsavelSupervisorId == supervisorId.Value ||
+                      i.Acao.ResponsavelSetorId == setorId.Value))
+                ));
+
+        if (item is null)
+            return NotFound(new { message = "Item nao OK nao encontrado." });
+
+        return Ok(ToPainelItemDto(item, includeHistory: true));
     }
 
     [HttpPost("itens-nao-ok/{checklistItemId:guid}/atribuir")]
@@ -432,14 +485,110 @@ public class SupervisorController : ControllerBase
             AprovadoEm = DateTime.UtcNow,
             ResponsavelSupervisorId = responsavel.Id,
             ResponsavelSetorId = responsavel.SetorId,
-            ObservacaoAtribuicao = NormalizeOptionalText(request.ObservacaoAtribuicao)
+            ObservacaoAtribuicao = NormalizeOptionalText(request.ObservacaoAtribuicao),
+            ObservacaoResponsavel = NormalizeOptionalText(request.ObservacaoResponsavel),
+            DataPrevistaConclusao = NormalizeDateOnly(request.DataPrevistaConclusao),
+            PercentualConclusao = NormalizePercentualConclusao(request.PercentualConclusao)
         };
 
         _db.ChecklistItensAcoes.Add(acao);
+        _db.ChecklistItensAcoesHistorico.Add(CreateHistoricoEntry(
+            acao,
+            supervisorId.Value,
+            "Tratativa atribuida",
+            BuildTratativaCriadaDescricao(responsavel, acao)
+        ));
         await _db.SaveChangesAsync();
 
         var dto = await LoadPainelItemDtoAsync(item.Id);
         return Ok(dto);
+    }
+
+    [HttpPut("itens-nao-ok/{checklistItemId:guid}/tratativa")]
+    public async Task<ActionResult<ItemNaoOkPainelItemDto>> AtualizarTratativaItemNaoOk(
+        Guid checklistItemId,
+        [FromBody] AtualizarTratativaItemNaoOkRequest request)
+    {
+        var setorId = CurrentSupervisorClaims.GetSetorId(User);
+        var supervisorId = CurrentSupervisorClaims.GetSupervisorId(User);
+        if (setorId is null || supervisorId is null)
+            return Unauthorized(new { message = "Supervisor sem contexto valido." });
+
+        var item = await _db.ChecklistItens
+            .Include(i => i.Checklist)
+            .Include(i => i.Acao)
+            .FirstOrDefaultAsync(i => i.Id == checklistItemId);
+
+        if (item is null)
+            return NotFound(new { message = "Item nao OK nao encontrado." });
+
+        if (item.Status != ItemStatus.NOK)
+            return BadRequest(new { message = "Apenas itens NOK podem ser editados neste fluxo." });
+
+        if (item.Acao is null)
+            return BadRequest(new { message = "Este item ainda nao possui tratativa para ser editada." });
+
+        if (item.Acao.Status == ItemNaoOkAcaoStatus.Concluida)
+            return Conflict(new { message = "Tratativas concluidas nao podem ser editadas." });
+
+        var podeEditar = item.Checklist.SetorId == setorId.Value ||
+                         item.Acao.ResponsavelSupervisorId == supervisorId.Value ||
+                         item.Acao.ResponsavelSetorId == setorId.Value;
+
+        if (!podeEditar)
+            return Forbid();
+
+        var responsavel = await _db.UsuariosSupervisores
+            .AsNoTracking()
+            .Include(x => x.Setor)
+            .FirstOrDefaultAsync(x => x.Id == request.ResponsavelSupervisorId && x.Ativo && !x.IsMaster);
+
+        if (responsavel is null || !responsavel.Setor.Ativo)
+            return BadRequest(new { message = "Responsavel informado nao esta disponivel para atribuicao." });
+
+        var changes = new List<string>();
+        var normalizedObservacaoResponsavel = NormalizeOptionalText(request.ObservacaoResponsavel);
+        var normalizedDataPrevista = NormalizeDateOnly(request.DataPrevistaConclusao);
+        var normalizedPercentual = NormalizePercentualConclusao(request.PercentualConclusao);
+
+        if (item.Acao.ResponsavelSupervisorId != responsavel.Id)
+        {
+            changes.Add($"Responsavel alterado para {responsavel.Nome} {responsavel.Sobrenome} ({responsavel.Setor.Nome}).");
+            item.Acao.ResponsavelSupervisorId = responsavel.Id;
+            item.Acao.ResponsavelSetorId = responsavel.SetorId;
+        }
+
+        if (!string.Equals(item.Acao.ObservacaoResponsavel, normalizedObservacaoResponsavel, StringComparison.Ordinal))
+        {
+            changes.Add($"Observacao do responsavel alterada de {DescribeOptional(item.Acao.ObservacaoResponsavel)} para {DescribeOptional(normalizedObservacaoResponsavel)}.");
+            item.Acao.ObservacaoResponsavel = normalizedObservacaoResponsavel;
+        }
+
+        if (item.Acao.DataPrevistaConclusao != normalizedDataPrevista)
+        {
+            changes.Add($"Data prevista alterada de {FormatHistoryDate(item.Acao.DataPrevistaConclusao)} para {FormatHistoryDate(normalizedDataPrevista)}.");
+            item.Acao.DataPrevistaConclusao = normalizedDataPrevista;
+        }
+
+        if (item.Acao.PercentualConclusao != normalizedPercentual)
+        {
+            changes.Add($"Percentual de conclusao alterado de {item.Acao.PercentualConclusao}% para {normalizedPercentual}%.");
+            item.Acao.PercentualConclusao = normalizedPercentual;
+        }
+
+        if (changes.Count == 0)
+            return Ok(await LoadPainelItemDtoAsync(item.Id));
+
+        _db.ChecklistItensAcoesHistorico.Add(CreateHistoricoEntry(
+            item.Acao,
+            supervisorId.Value,
+            "Tratativa atualizada",
+            string.Join(Environment.NewLine, changes)
+        ));
+
+        await _db.SaveChangesAsync();
+
+        return Ok(await LoadPainelItemDtoAsync(item.Id));
     }
 
     [HttpPost("itens-nao-ok/{checklistItemId:guid}/concluir")]
@@ -470,7 +619,7 @@ public class SupervisorController : ControllerBase
 
         if (item.Acao is null)
         {
-            _db.ChecklistItensAcoes.Add(new ChecklistItemAcao
+            var acao = new ChecklistItemAcao
             {
                 ChecklistItemId = item.Id,
                 Status = ItemNaoOkAcaoStatus.Concluida,
@@ -478,9 +627,18 @@ public class SupervisorController : ControllerBase
                 AprovadoEm = DateTime.UtcNow,
                 ResponsavelSupervisorId = supervisorId.Value,
                 ResponsavelSetorId = setorId.Value,
+                PercentualConclusao = 100,
                 ConcluidoPorSupervisorId = supervisorId.Value,
                 ConcluidoEm = DateTime.UtcNow
-            });
+            };
+
+            _db.ChecklistItensAcoes.Add(acao);
+            _db.ChecklistItensAcoesHistorico.Add(CreateHistoricoEntry(
+                acao,
+                supervisorId.Value,
+                "Tratativa concluida",
+                "O item foi concluido diretamente, sem atribuicao previa."
+            ));
         }
         else
         {
@@ -488,6 +646,7 @@ public class SupervisorController : ControllerBase
                 return Conflict(new { message = "Esta tratativa ja esta concluida." });
 
             item.Acao.Status = ItemNaoOkAcaoStatus.Concluida;
+            item.Acao.PercentualConclusao = 100;
             item.Acao.ConcluidoPorSupervisorId = supervisorId.Value;
             item.Acao.ConcluidoEm = DateTime.UtcNow;
 
@@ -496,6 +655,13 @@ public class SupervisorController : ControllerBase
                 item.Acao.ResponsavelSupervisorId = supervisorId.Value;
                 item.Acao.ResponsavelSetorId = setorId.Value;
             }
+
+            _db.ChecklistItensAcoesHistorico.Add(CreateHistoricoEntry(
+                item.Acao,
+                supervisorId.Value,
+                "Tratativa concluida",
+                $"Tratativa marcada como concluida com percentual final de {item.Acao.PercentualConclusao}%."
+            ));
         }
 
         await _db.SaveChangesAsync();
@@ -522,12 +688,15 @@ public class SupervisorController : ControllerBase
                 .ThenInclude(a => a.AprovadoPorSupervisor)
             .Include(i => i.Acao!)
                 .ThenInclude(a => a.ConcluidoPorSupervisor)
+            .Include(i => i.Acao!)
+                .ThenInclude(a => a.Historico)
+                    .ThenInclude(h => h.CriadoPorSupervisor)
             .FirstAsync(i => i.Id == checklistItemId);
 
-        return ToPainelItemDto(item);
+        return ToPainelItemDto(item, includeHistory: true);
     }
 
-    private static ItemNaoOkPainelItemDto ToPainelItemDto(ChecklistItem i)
+    private static ItemNaoOkPainelItemDto ToPainelItemDto(ChecklistItem i, bool includeHistory = false)
     {
         var workflowStatus = i.Acao is null
             ? "pendente-aprovacao"
@@ -549,6 +718,9 @@ public class SupervisorController : ControllerBase
             i.Descricao,
             i.Instrucao,
             i.Observacao,
+            i.ImagemNokBase64,
+            i.ImagemNokNomeArquivo,
+            i.ImagemNokMimeType,
             workflowStatus,
             i.Acao?.ResponsavelSupervisorId,
             i.Acao?.ResponsavelSupervisor is null
@@ -557,6 +729,9 @@ public class SupervisorController : ControllerBase
             i.Acao?.ResponsavelSetorId,
             i.Acao?.ResponsavelSetor?.Nome,
             i.Acao?.ObservacaoAtribuicao,
+            i.Acao?.ObservacaoResponsavel,
+            i.Acao?.DataPrevistaConclusao,
+            i.Acao?.PercentualConclusao ?? 0,
             i.Acao?.AprovadoEm,
             i.Acao?.AprovadoPorSupervisor is null
                 ? null
@@ -565,7 +740,158 @@ public class SupervisorController : ControllerBase
             i.Acao?.ConcluidoPorSupervisor is null
                 ? null
                 : $"{i.Acao.ConcluidoPorSupervisor.Nome} {i.Acao.ConcluidoPorSupervisor.Sobrenome}"
+            ,
+            includeHistory ? BuildPainelHistorico(i) : null
         );
+    }
+
+    private static List<ItemNaoOkHistoricoEntryDto> BuildPainelHistorico(ChecklistItem item)
+    {
+        var entries = new List<ItemNaoOkHistoricoEntryDto>
+        {
+            new(
+                Guid.Empty,
+                "Ocorrencia registrada",
+                $"{item.Checklist.Operador.Nome} registrou o item {item.Ordem} como nao OK no checklist.",
+                item.Checklist.DataRealizacao,
+                item.Checklist.Operador.Nome
+            ),
+        };
+
+        if (item.Acao is null)
+        {
+            return entries
+                .OrderByDescending(x => x.CriadoEm)
+                .ToList();
+        }
+
+        var hasAssignedHistory = item.Acao.Historico.Any(h =>
+            string.Equals(h.Titulo, "Tratativa atribuida", StringComparison.OrdinalIgnoreCase));
+
+        if (!hasAssignedHistory)
+        {
+            entries.Add(new ItemNaoOkHistoricoEntryDto(
+                Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                "Tratativa atribuida",
+                BuildFallbackAssignedHistoryDescription(item),
+                item.Acao.AprovadoEm,
+                item.Acao.AprovadoPorSupervisor is null
+                    ? "Supervisor"
+                    : $"{item.Acao.AprovadoPorSupervisor.Nome} {item.Acao.AprovadoPorSupervisor.Sobrenome}"
+            ));
+        }
+
+        if (item.Acao.Historico.Count > 0)
+        {
+            entries.AddRange(item.Acao.Historico
+                .OrderByDescending(h => h.CriadoEm)
+                .Select(h => new ItemNaoOkHistoricoEntryDto(
+                    h.Id,
+                    h.Titulo,
+                    h.Descricao,
+                    h.CriadoEm,
+                    $"{h.CriadoPorSupervisor.Nome} {h.CriadoPorSupervisor.Sobrenome}"
+                )));
+        }
+        else
+        {
+            if (item.Acao.ConcluidoEm is not null)
+            {
+                entries.Add(new ItemNaoOkHistoricoEntryDto(
+                    Guid.NewGuid(),
+                    "Tratativa concluida",
+                    $"Tratativa marcada como concluida com percentual final de {item.Acao.PercentualConclusao}%.",
+                    item.Acao.ConcluidoEm.Value,
+                    item.Acao.ConcluidoPorSupervisor is null
+                        ? "Supervisor"
+                        : $"{item.Acao.ConcluidoPorSupervisor.Nome} {item.Acao.ConcluidoPorSupervisor.Sobrenome}"
+                ));
+            }
+        }
+
+        return entries
+            .OrderByDescending(x => x.CriadoEm)
+            .ToList();
+    }
+
+    private static ChecklistItemAcaoHistorico CreateHistoricoEntry(
+        ChecklistItemAcao acao,
+        Guid criadoPorSupervisorId,
+        string titulo,
+        string descricao)
+    {
+        return new ChecklistItemAcaoHistorico
+        {
+            ChecklistItemAcao = acao,
+            CriadoPorSupervisorId = criadoPorSupervisorId,
+            Titulo = titulo,
+            Descricao = descricao
+        };
+    }
+
+    private static string BuildTratativaCriadaDescricao(UsuarioSupervisor responsavel, ChecklistItemAcao acao)
+    {
+        var parts = new List<string>
+        {
+            $"Responsavel definido: {responsavel.Nome} {responsavel.Sobrenome} ({responsavel.Setor.Nome}).",
+            $"Percentual inicial: {acao.PercentualConclusao}%."
+        };
+
+        if (acao.DataPrevistaConclusao is not null)
+            parts.Add($"Data prevista de conclusao: {FormatHistoryDate(acao.DataPrevistaConclusao)}.");
+
+        if (!string.IsNullOrWhiteSpace(acao.ObservacaoResponsavel))
+            parts.Add($"Observacao do responsavel: {acao.ObservacaoResponsavel}.");
+
+        return string.Join(Environment.NewLine, parts);
+    }
+
+    private static string BuildFallbackAssignedHistoryDescription(ChecklistItem item)
+    {
+        var responsavelNome = item.Acao?.ResponsavelSupervisor is null
+            ? "Responsavel nao informado"
+            : $"{item.Acao.ResponsavelSupervisor.Nome} {item.Acao.ResponsavelSupervisor.Sobrenome}";
+
+        var parts = new List<string>
+        {
+            $"Responsavel definido: {responsavelNome}.",
+            $"Percentual inicial: {item.Acao?.PercentualConclusao ?? 0}%.",
+        };
+
+        if (item.Acao?.DataPrevistaConclusao is not null)
+            parts.Add($"Data prevista de conclusao: {FormatHistoryDate(item.Acao.DataPrevistaConclusao)}.");
+
+        if (!string.IsNullOrWhiteSpace(item.Acao?.ObservacaoResponsavel))
+            parts.Add($"Observacao do responsavel: {item.Acao.ObservacaoResponsavel}.");
+
+        return string.Join(Environment.NewLine, parts);
+    }
+
+    private static string DescribeOptional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "\"-\"" : $"\"{value}\"";
+    }
+
+    private static string FormatHistoryDate(DateTime? value)
+    {
+        return value is null ? "-" : value.Value.ToString("dd/MM/yyyy");
+    }
+
+    private static DateTime? NormalizeDateOnly(DateTime? value)
+    {
+        if (value is null)
+            return null;
+
+        var utc = value.Value.Kind == DateTimeKind.Utc
+            ? value.Value
+            : value.Value.ToUniversalTime();
+
+        return new DateTime(utc.Year, utc.Month, utc.Day, 0, 0, 0, DateTimeKind.Utc);
+    }
+
+    private static int NormalizePercentualConclusao(int value)
+    {
+        return Math.Clamp(value, 0, 100);
     }
 
     private static string? NormalizeOptionalText(string? value)

@@ -41,5 +41,8 @@ export type ChecklistDto = {
     instrucao?: string | null;
     status: ItemStatus;
     observacao?: string | null;
+    imagemNokBase64?: string | null;
+    imagemNokNomeArquivo?: string | null;
+    imagemNokMimeType?: string | null;
   }>;
 };
