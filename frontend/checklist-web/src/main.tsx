@@ -23,6 +23,7 @@ import CategoriasPage from "./pages/admin/CategoriasPage";
 import ChecklistsPage from "./pages/admin/ChecklistsPage";
 import EquipamentosPage from "./pages/admin/EquipamentosPage";
 import FechamentosMensaisPage from "./pages/admin/FechamentosMensaisPage";
+import ItemNaoOkDetailPage from "./pages/admin/ItemNaoOkDetailPage";
 import ItensNaoOkPage from "./pages/admin/ItensNaoOkPage";
 import OperadoresPage from "./pages/admin/OperadoresPage";
 import SetoresPage from "./pages/admin/SetoresPage";
@@ -106,6 +107,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               element={(
                 <RequireSectorSupervisor>
                     <ItensNaoOkPage />
+                </RequireSectorSupervisor>
+              )}
+            />
+            <Route
+              path="itens-nao-ok/item/:id"
+              element={(
+                <RequireSectorSupervisor>
+                  <ItemNaoOkDetailPage />
                 </RequireSectorSupervisor>
               )}
             />

@@ -307,7 +307,7 @@ export default function ItemNaoOkDetailPage() {
       setSuccess(`Tratativa atribuida para ${responsavel?.nomeCompleto || "o responsavel selecionado"}.`);
     } catch (err) {
       await syncAfterAction(err, {
-        on404: "A API nao localizou a versao atual do item apos a aprovacao. A tela foi sincronizada com o estado mais recente disponivel.",
+        on404: "",
         on409: "Este item ja possui uma tratativa registrada. A tela foi sincronizada com o estado atual para evitar aprovacao duplicada.",
         fallback: "Erro ao atribuir a tratativa.",
       });
