@@ -1,6 +1,8 @@
 using Checklist.Api.Data;
 using Checklist.Api.Dtos;
+using Checklist.Api.Models;
 using Checklist.Api.Security;
+using Checklist.Api.Support;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +40,7 @@ public class AuthController : ControllerBase
         var supervisor = await _db.UsuariosSupervisores
             .AsNoTracking()
             .Include(x => x.Setor)
+            .Include(x => x.Modulos)
             .FirstOrDefaultAsync(x => x.Login == login && x.Ativo);
 
         if (supervisor is null || !_passwordHashingService.VerifyPassword(senha, supervisor.SenhaHash))
@@ -62,6 +65,7 @@ public class AuthController : ControllerBase
         var supervisor = await _db.UsuariosSupervisores
             .AsNoTracking()
             .Include(x => x.Setor)
+            .Include(x => x.Modulos)
             .FirstOrDefaultAsync(x => x.Id == supervisorId.Value && x.SetorId == setorId.Value && x.Ativo);
 
         if (supervisor is null || (!supervisor.IsMaster && !supervisor.Setor.Ativo))
@@ -94,6 +98,7 @@ public class AuthController : ControllerBase
 
         var supervisor = await _db.UsuariosSupervisores
             .Include(x => x.Setor)
+            .Include(x => x.Modulos)
             .FirstOrDefaultAsync(x => x.Id == supervisorId.Value && x.SetorId == setorId.Value && x.Ativo);
 
         if (supervisor is null || (!supervisor.IsMaster && !supervisor.Setor.Ativo))
@@ -126,8 +131,18 @@ public class AuthController : ControllerBase
                 supervisor.SetorId,
                 supervisor.Setor.Nome,
                 supervisor.ForceChangePassword,
-                supervisor.IsMaster
+                supervisor.IsMaster,
+                supervisor.TipoUsuario,
+                BuildModulosDisponiveis(supervisor)
             )
         );
+    }
+
+    private static IReadOnlyList<string> BuildModulosDisponiveis(Models.UsuarioSupervisor supervisor)
+    {
+        if (supervisor.IsMaster)
+            return [];
+
+        return AccessModuleCatalog.ToCodes(supervisor.Modulos);
     }
 }

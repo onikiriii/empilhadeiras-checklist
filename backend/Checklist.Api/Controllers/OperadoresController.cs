@@ -19,7 +19,7 @@ public class OperadoresController : ControllerBase
 
     [Authorize(Policy = "SectorSupervisorReady")]
     [HttpGet]
-    public async Task<ActionResult<List<OperadorDto>>> Listar([FromQuery] bool? ativos = true)
+    public async Task<ActionResult<List<OperadorDto>>> Listar([FromQuery] bool? ativos = null)
     {
         var setorId = CurrentSupervisorClaims.GetSetorId(User);
         if (setorId is null)

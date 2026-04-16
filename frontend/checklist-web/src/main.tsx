@@ -8,14 +8,17 @@ import {
   GuestOnly,
   RequireAuth,
   RequireMaster,
+  RequireMaterialsInspectionModule,
   RequirePasswordChange,
   RequireSectorSupervisor,
+  RequireSafetyWorkModule,
   useAuth,
 } from "./auth";
 import HomePage from "./pages/HomePage";
 import { ChecklistPage } from "./pages/ChecklistPage";
 import FirstAccessPasswordPage from "./pages/FirstAccessPasswordPage";
 import LoginPage from "./pages/LoginPage";
+import ModuleSelectionPage from "./pages/ModuleSelectionPage";
 import SupervisorDashboard from "./pages/SupervisorDashboard";
 import SupervisorChecklistDetail from "./pages/SupervisorChecklistDetail";
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -27,9 +30,17 @@ import ItemNaoOkDetailPage from "./pages/admin/ItemNaoOkDetailPage";
 import ItensNaoOkPage from "./pages/admin/ItensNaoOkPage";
 import OperadoresPage from "./pages/admin/OperadoresPage";
 import SetoresPage from "./pages/admin/SetoresPage";
+import InspetoresPage from "./pages/admin/InspetoresPage";
 import SupervisoresPage from "./pages/admin/SupervisoresPage";
 import TemplatesPage from "./pages/admin/TemplatesPage";
 import ItensNaoOkDashboardPage from "./pages/admin/ItensNaoOkDashboardPage";
+import StpLayout from "./pages/stp/StpLayout";
+import StpDashboardPage from "./pages/stp/StpDashboardPage";
+import StpChecklistCreatePage from "./pages/stp/StpChecklistCreatePage";
+import StpChecklistsPage from "./pages/stp/StpChecklistsPage";
+import StpChecklistDetailPage from "./pages/stp/StpChecklistDetailPage";
+import MaterialsLayout from "./pages/materials/MaterialsLayout";
+import MaterialsDashboardPage from "./pages/materials/MaterialsDashboardPage";
 
 function AdminIndexRedirect() {
   const { session } = useAuth();
@@ -58,6 +69,39 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               </RequirePasswordChange>
             )}
           />
+          <Route
+            path="/modulos"
+            element={(
+              <RequireAuth>
+                <ModuleSelectionPage />
+              </RequireAuth>
+            )}
+          />
+          <Route
+            path="/materiais"
+            element={(
+              <RequireMaterialsInspectionModule>
+                <MaterialsLayout />
+              </RequireMaterialsInspectionModule>
+            )}
+          >
+            <Route index element={<Navigate to="/materiais/dashboard" replace />} />
+            <Route path="dashboard" element={<MaterialsDashboardPage />} />
+          </Route>
+          <Route
+            path="/stp"
+            element={(
+              <RequireSafetyWorkModule>
+                <StpLayout />
+              </RequireSafetyWorkModule>
+            )}
+          >
+            <Route index element={<Navigate to="/stp/dashboard" replace />} />
+            <Route path="dashboard" element={<StpDashboardPage />} />
+            <Route path="checklists" element={<StpChecklistsPage />} />
+            <Route path="checklists/nova" element={<StpChecklistCreatePage />} />
+            <Route path="checklists/:id" element={<StpChecklistDetailPage />} />
+          </Route>
           <Route path="/supervisor/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
           <Route
             path="/supervisor/checklist/:id"
@@ -163,6 +207,14 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
               element={(
                 <RequireMaster>
                   <SetoresPage />
+                </RequireMaster>
+              )}
+            />
+            <Route
+              path="inspetores"
+              element={(
+                <RequireMaster>
+                  <InspetoresPage />
                 </RequireMaster>
               )}
             />

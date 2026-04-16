@@ -26,7 +26,7 @@ export default function TemplatesPage() {
 
   async function loadCategorias() {
     try {
-      const data = await api.get<Categoria[]>("/api/supervisor/categorias-equipamento");
+      const data = await api.get<Categoria[]>("/api/supervisor/categorias-equipamento?ativas=true");
       setCategorias(data);
     } catch (e: any) {
       setError(e.message ?? "Erro ao carregar categorias");
@@ -69,13 +69,19 @@ export default function TemplatesPage() {
     setShowForm(true);
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Tem certeza que deseja excluir este item?")) return;
+  async function handleToggleStatus(template: TemplateItem) {
+    const proximoStatus = !template.ativo;
+    if (!confirm(`Tem certeza que deseja ${proximoStatus ? "ativar" : "inativar"} este item?`)) return;
     try {
-      await api.delete(`/api/supervisor/checklist-itens-template/${id}`);
+      await api.put(`/api/supervisor/checklist-itens-template/${template.id}`, {
+        ordem: template.ordem,
+        descricao: template.descricao,
+        instrucao: template.instrucao || null,
+        ativo: proximoStatus,
+      });
       loadTemplates(selectedCategoria);
     } catch (e: any) {
-      setError(e.message ?? "Erro ao excluir template");
+      setError(e.message ?? "Erro ao atualizar status do template");
     }
   }
 
@@ -165,7 +171,12 @@ export default function TemplatesPage() {
                         <td style={styles.td}>
                           <div style={styles.actionRow}>
                             <button onClick={() => handleEdit(template)} style={styles.secondarySmallButton}>Editar</button>
-                            <button onClick={() => handleDelete(template.id)} style={styles.dangerSmallButton}>Excluir</button>
+                            <button
+                              onClick={() => handleToggleStatus(template)}
+                              style={template.ativo ? styles.dangerSmallButton : styles.successSmallButton}
+                            >
+                              {template.ativo ? "Inativar" : "Ativar"}
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -222,5 +233,6 @@ const styles: Record<string, React.CSSProperties> = {
   badgeDanger: { background: "#FFF1F0", color: "#B42318", border: "1px solid #F2B8B5" },
   actionRow: { display: "flex", gap: 8, flexWrap: "wrap" },
   secondarySmallButton: { background: "#FFFFFF", color: "#344054", border: "1px solid #D0D5DD", borderRadius: 10, padding: "7px 11px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
+  successSmallButton: { background: "#EAF8EE", color: "#1E7E34", border: "1px solid #B7E1C0", borderRadius: 10, padding: "7px 11px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
   dangerSmallButton: { background: "#FFF1F0", color: "#B42318", border: "1px solid #F2B8B5", borderRadius: 10, padding: "7px 11px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
 };

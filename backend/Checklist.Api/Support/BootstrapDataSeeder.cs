@@ -13,6 +13,7 @@ public class BootstrapDataSeeder
     private readonly PasswordHashingService _passwordHashingService;
     private readonly SupervisorLoginGenerator _supervisorLoginGenerator;
     private readonly ChecklistStandardCatalogService _checklistStandardCatalogService;
+    private readonly StpAreaTemplateCatalogService _stpAreaTemplateCatalogService;
     private readonly AuthOptions _authOptions;
 
     public BootstrapDataSeeder(
@@ -20,12 +21,14 @@ public class BootstrapDataSeeder
         PasswordHashingService passwordHashingService,
         SupervisorLoginGenerator supervisorLoginGenerator,
         ChecklistStandardCatalogService checklistStandardCatalogService,
+        StpAreaTemplateCatalogService stpAreaTemplateCatalogService,
         IOptions<AuthOptions> authOptions)
     {
         _db = db;
         _passwordHashingService = passwordHashingService;
         _supervisorLoginGenerator = supervisorLoginGenerator;
         _checklistStandardCatalogService = checklistStandardCatalogService;
+        _stpAreaTemplateCatalogService = stpAreaTemplateCatalogService;
         _authOptions = authOptions.Value;
     }
 
@@ -39,6 +42,7 @@ public class BootstrapDataSeeder
                 string.IsNullOrWhiteSpace(bootstrap.Senha))
             {
                 await _checklistStandardCatalogService.EnsureDefaultsForAllSetoresAsync();
+                await _stpAreaTemplateCatalogService.EnsureDefaultsForAllSetoresAsync();
                 return;
             }
 
@@ -69,8 +73,16 @@ public class BootstrapDataSeeder
                 SenhaHash = _passwordHashingService.HashPassword(bootstrap.Senha),
                 ForceChangePassword = bootstrap.ForceChangePassword,
                 IsMaster = bootstrap.IsMaster,
+                TipoUsuario = UsuarioTipoAcesso.Supervisor,
                 SetorId = setor.Id,
-                Ativo = true
+                Ativo = true,
+                Modulos =
+                [
+                    new UsuarioSupervisorModulo
+                    {
+                        Modulo = ModuloAcesso.SupervisaoOperacional
+                    }
+                ]
             };
 
             _db.UsuariosSupervisores.Add(supervisor);
@@ -78,5 +90,6 @@ public class BootstrapDataSeeder
         }
 
         await _checklistStandardCatalogService.EnsureDefaultsForAllSetoresAsync();
+        await _stpAreaTemplateCatalogService.EnsureDefaultsForAllSetoresAsync();
     }
 }

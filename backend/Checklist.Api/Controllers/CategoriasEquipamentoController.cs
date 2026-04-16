@@ -19,7 +19,7 @@ public class CategoriasEquipamentoController : ControllerBase
     public CategoriasEquipamentoController(AppDbContext db) => _db = db;
 
     [HttpGet]
-    public async Task<ActionResult<List<CategoriaEquipamentoDto>>> Listar([FromQuery] bool? ativas = true)
+    public async Task<ActionResult<List<CategoriaEquipamentoDto>>> Listar([FromQuery] bool? ativas = null)
     {
         var setorId = CurrentSupervisorClaims.GetSetorId(User);
         if (setorId is null)

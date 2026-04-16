@@ -15,11 +15,16 @@ public class SetoresController : ControllerBase
 {
     private readonly AppDbContext _db;
     private readonly ChecklistStandardCatalogService _checklistStandardCatalogService;
+    private readonly StpAreaTemplateCatalogService _stpAreaTemplateCatalogService;
 
-    public SetoresController(AppDbContext db, ChecklistStandardCatalogService checklistStandardCatalogService)
+    public SetoresController(
+        AppDbContext db,
+        ChecklistStandardCatalogService checklistStandardCatalogService,
+        StpAreaTemplateCatalogService stpAreaTemplateCatalogService)
     {
         _db = db;
         _checklistStandardCatalogService = checklistStandardCatalogService;
+        _stpAreaTemplateCatalogService = stpAreaTemplateCatalogService;
     }
 
     [HttpGet]
@@ -67,6 +72,7 @@ public class SetoresController : ControllerBase
         _db.Setores.Add(setor);
         await _db.SaveChangesAsync();
         await _checklistStandardCatalogService.EnsureDefaultsForSetorAsync(setor.Id);
+        await _stpAreaTemplateCatalogService.EnsureDefaultsForSetorAsync(setor.Id);
 
         return Created("", ToDto(setor, 0, 0, 0));
     }

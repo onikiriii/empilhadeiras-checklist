@@ -21,7 +21,7 @@ public class ChecklistItensTemplateController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<ChecklistItemTemplateDto>>> ListarPorCategoria(
         [FromQuery] Guid categoriaId,
-        [FromQuery] bool? ativos = true)
+        [FromQuery] bool? ativos = null)
     {
         if (categoriaId == Guid.Empty)
             return BadRequest(new { message = "categoriaId é obrigatório." });

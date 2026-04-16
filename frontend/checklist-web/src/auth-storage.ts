@@ -1,3 +1,6 @@
+export type AccessModule = "supervisao-operacional" | "seguranca-trabalho" | "inspecao-materiais";
+export type UserAccessType = "Supervisor" | "Inspetor";
+
 export type SupervisorSessionUser = {
   id: string;
   nome: string;
@@ -10,6 +13,8 @@ export type SupervisorSessionUser = {
   setorNome: string;
   forceChangePassword: boolean;
   isMaster: boolean;
+  tipoUsuario: UserAccessType;
+  modulosDisponiveis: AccessModule[];
 };
 
 export type AuthSession = {

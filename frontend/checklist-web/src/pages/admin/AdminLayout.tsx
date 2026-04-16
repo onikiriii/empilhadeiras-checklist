@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../auth";
 import "../../styles/global.css";
 
@@ -17,6 +17,7 @@ const supervisorMenuItems = [
 const masterMenuItems = [
   { path: "/admin/setores", label: "Setores", icon: <LayersIcon /> },
   { path: "/admin/supervisores", label: "Supervisores", icon: <ShieldIcon /> },
+  { path: "/admin/inspetores", label: "Inspetores", icon: <WorkerIcon /> },
 ];
 
 const pageTitles: Record<string, string> = {
@@ -31,6 +32,7 @@ const pageTitles: Record<string, string> = {
   "/admin/equipamentos": "Equipamentos",
   "/admin/setores": "",
   "/admin/supervisores": "Supervisores",
+  "/admin/inspetores": "Inspetores",
 };
 
 export default function AdminLayout() {
@@ -49,7 +51,8 @@ export default function AdminLayout() {
       ? "Itens nao OK"
       : pageTitles[location.pathname] || "Painel Administrativo";
   const userInitial = useMemo(() => session?.supervisor.nome?.trim()?.charAt(0)?.toUpperCase() || "C", [session]);
-  const scopeLabel = isMaster ? "CheckFlow" : (session?.supervisor.setorNome ?? "Setor");
+  const hasMultipleModules = (session?.supervisor.modulosDisponiveis?.length ?? 0) > 1;
+  const scopeLabel = isMaster ? "CheckFlow" : "Supervisao Operacional";
   const userScope = isMaster ? "Admin" : (session?.supervisor.setorNome ?? "Setor");
 
   useEffect(() => {
@@ -234,13 +237,21 @@ export default function AdminLayout() {
                   <div style={styles.userMenuInfo}>
                     <div style={styles.userMenuRow}>
                       <span style={styles.userMenuLabel}>Perfil</span>
-                      <span style={styles.userMenuValue}>{isMaster ? "Master" : "Supervisor"}</span>
+                      <span style={styles.userMenuValue}>
+                        {isMaster ? "Master" : session?.supervisor.tipoUsuario === "Inspetor" ? "Inspetor" : "Supervisor"}
+                      </span>
                     </div>
                     <div style={styles.userMenuRow}>
                       <span style={styles.userMenuLabel}>Setor</span>
                       <span style={styles.userMenuValue}>{userScope}</span>
                     </div>
                   </div>
+
+                  {hasMultipleModules ? (
+                    <Link to="/modulos" onClick={() => setMenuOpen(false)} style={styles.userMenuLink}>
+                      Trocar módulo
+                    </Link>
+                  ) : null}
 
                   <button onClick={handleLogout} type="button" style={styles.userMenuLogout}>
                     Sair
@@ -751,6 +762,19 @@ const styles: Record<string, React.CSSProperties> = {
   userMenuInfo: {
     display: "grid",
     gap: 8,
+  },
+  userMenuLink: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    textDecoration: "none",
+    borderRadius: 12,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(255,255,255,0.08)",
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: 700,
+    minHeight: 40,
   },
   userMenuRow: {
     display: "flex",

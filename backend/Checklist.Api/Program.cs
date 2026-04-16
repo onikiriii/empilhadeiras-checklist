@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Checklist.Api.Data;
+using Checklist.Api.Models;
 using Checklist.Api.Options;
 using Checklist.Api.Security;
 using Checklist.Api.Support;
@@ -76,6 +77,7 @@ builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<ChecklistMonthlyPdfService>();
 builder.Services.AddScoped<SupervisorLoginGenerator>();
 builder.Services.AddScoped<ChecklistStandardCatalogService>();
+builder.Services.AddScoped<StpAreaTemplateCatalogService>();
 builder.Services.AddScoped<BootstrapDataSeeder>();
 builder.Services.AddScoped<ChecklistMonthlyClosingService>();
 
@@ -109,7 +111,29 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAuthenticatedUser();
         policy.RequireAssertion(context =>
             !CurrentSupervisorClaims.GetForceChangePassword(context.User) &&
-            !CurrentSupervisorClaims.GetIsMaster(context.User));
+            !CurrentSupervisorClaims.GetIsMaster(context.User) &&
+            string.Equals(CurrentSupervisorClaims.GetUserType(context.User), UsuarioTipoAcesso.Supervisor.ToString(), StringComparison.Ordinal) &&
+            CurrentSupervisorClaims.HasModuleAccess(context.User, AccessModuleCatalog.SupervisaoOperacional));
+    });
+
+    options.AddPolicy("SafetyWorkReady", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+            !CurrentSupervisorClaims.GetForceChangePassword(context.User) &&
+            !CurrentSupervisorClaims.GetIsMaster(context.User) &&
+            string.Equals(CurrentSupervisorClaims.GetUserType(context.User), UsuarioTipoAcesso.Inspetor.ToString(), StringComparison.Ordinal) &&
+            CurrentSupervisorClaims.HasModuleAccess(context.User, AccessModuleCatalog.SegurancaTrabalho));
+    });
+
+    options.AddPolicy("MaterialsInspectionReady", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+            !CurrentSupervisorClaims.GetForceChangePassword(context.User) &&
+            !CurrentSupervisorClaims.GetIsMaster(context.User) &&
+            string.Equals(CurrentSupervisorClaims.GetUserType(context.User), UsuarioTipoAcesso.Inspetor.ToString(), StringComparison.Ordinal) &&
+            CurrentSupervisorClaims.HasModuleAccess(context.User, AccessModuleCatalog.InspecaoMateriais));
     });
 
     options.AddPolicy("MasterReady", policy =>
