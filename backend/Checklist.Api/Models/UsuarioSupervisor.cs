@@ -32,11 +32,13 @@ public class UsuarioSupervisor
 
     public bool ForceChangePassword { get; set; } = true;
     public bool IsMaster { get; set; } = false;
+    public UsuarioTipoAcesso TipoUsuario { get; set; } = UsuarioTipoAcesso.Supervisor;
 
     [Required]
     public Guid SetorId { get; set; }
 
     public Setor Setor { get; set; } = null!;
+    public List<UsuarioSupervisorModulo> Modulos { get; set; } = [];
 
     public bool Ativo { get; set; } = true;
 

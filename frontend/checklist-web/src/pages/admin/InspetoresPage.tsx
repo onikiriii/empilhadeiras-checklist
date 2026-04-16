@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { api, ApiError } from "../../api";
 
+const inspectorModules = [
+  { code: "seguranca-trabalho", label: "Segurança do Trabalho" },
+  { code: "inspecao-materiais", label: "Inspeção de Materiais" },
+] as const;
+
 type SetorOption = {
   id: string;
   nome: string;
   ativo: boolean;
 };
 
-type Supervisor = {
+type Inspetor = {
   id: string;
   nome: string;
   sobrenome: string;
@@ -24,8 +29,8 @@ type Supervisor = {
   modulosDisponiveis: string[];
 };
 
-export default function SupervisoresPage() {
-  const [supervisores, setSupervisores] = useState<Supervisor[]>([]);
+export default function InspetoresPage() {
+  const [inspetores, setInspetores] = useState<Inspetor[]>([]);
   const [setores, setSetores] = useState<SetorOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -39,6 +44,7 @@ export default function SupervisoresPage() {
     confirmaSenha: "",
     setorId: "",
     forceChange: true,
+    modulosDisponiveis: ["seguranca-trabalho"] as string[],
     ramal: "",
     email: "",
     ativo: true,
@@ -52,20 +58,20 @@ export default function SupervisoresPage() {
     setLoading(true);
     setError("");
     try {
-      const [loadedSetores, loadedSupervisores] = await Promise.all([
+      const [loadedSetores, loadedInspetores] = await Promise.all([
         api.get<SetorOption[]>("/api/master/setores"),
-        api.get<Supervisor[]>("/api/master/supervisores"),
+        api.get<Inspetor[]>("/api/master/inspetores"),
       ]);
 
       const setoresAtivos = loadedSetores.filter((setor) => setor.ativo);
       setSetores(setoresAtivos);
-      setSupervisores(loadedSupervisores);
+      setInspetores(loadedInspetores);
       setForm((current) => ({
         ...current,
         setorId: current.setorId || setoresAtivos[0]?.id || "",
       }));
     } catch (e) {
-      setError(extractMessage(e, "Erro ao carregar setores e supervisores."));
+      setError(extractMessage(e, "Erro ao carregar setores e inspetores."));
     } finally {
       setLoading(false);
     }
@@ -83,6 +89,7 @@ export default function SupervisoresPage() {
         sobrenome: form.sobrenome,
         setorId: form.setorId,
         forceChange: form.forceChange,
+        modulosDisponiveis: form.modulosDisponiveis,
         ramal: form.ramal || null,
         email: form.email || null,
         ativo: form.ativo,
@@ -91,18 +98,18 @@ export default function SupervisoresPage() {
       };
 
       if (editingId) {
-        const updated = await api.put<Supervisor>(`/api/master/supervisores/${editingId}`, payload);
-        setSupervisores((current) =>
+        const updated = await api.put<Inspetor>(`/api/master/inspetores/${editingId}`, payload);
+        setInspetores((current) =>
           current
-            .map((supervisor) => (supervisor.id === updated.id ? updated : supervisor))
+            .map((inspetor) => (inspetor.id === updated.id ? updated : inspetor))
             .sort((a, b) =>
               `${a.setorNome}${a.nomeCompleto}`.localeCompare(`${b.setorNome}${b.nomeCompleto}`, "pt-BR"),
             ),
         );
-        setSuccess(`Supervisor ${updated.nomeCompleto} atualizado. Login atual: ${updated.login}.`);
+        setSuccess(`Inspetor ${updated.nomeCompleto} atualizado. Login atual: ${updated.login}.`);
       } else {
-        const created = await api.post<Supervisor>("/api/master/supervisores", payload);
-        setSupervisores((current) =>
+        const created = await api.post<Inspetor>("/api/master/inspetores", payload);
+        setInspetores((current) =>
           [...current, created].sort((a, b) =>
             `${a.setorNome}${a.nomeCompleto}`.localeCompare(`${b.setorNome}${b.nomeCompleto}`, "pt-BR"),
           ),
@@ -112,27 +119,37 @@ export default function SupervisoresPage() {
 
       resetForm();
     } catch (e) {
-      setError(extractMessage(e, editingId ? "Erro ao atualizar supervisor." : "Erro ao criar supervisor."));
+      setError(extractMessage(e, editingId ? "Erro ao atualizar inspetor." : "Erro ao criar inspetor."));
     } finally {
       setSubmitting(false);
     }
   }
 
-  function handleEdit(supervisor: Supervisor) {
-    setEditingId(supervisor.id);
+  function handleEdit(inspetor: Inspetor) {
+    setEditingId(inspetor.id);
     setForm({
-      nome: supervisor.nome,
-      sobrenome: supervisor.sobrenome,
+      nome: inspetor.nome,
+      sobrenome: inspetor.sobrenome,
       senha: "",
       confirmaSenha: "",
-      setorId: supervisor.setorId,
-      forceChange: supervisor.forceChangePassword,
-      ramal: supervisor.ramal || "",
-      email: supervisor.email || "",
-      ativo: supervisor.ativo,
+      setorId: inspetor.setorId,
+      forceChange: inspetor.forceChangePassword,
+      modulosDisponiveis: inspetor.modulosDisponiveis,
+      ramal: inspetor.ramal || "",
+      email: inspetor.email || "",
+      ativo: inspetor.ativo,
     });
     setError("");
     setSuccess("");
+  }
+
+  function handleToggleModule(moduleCode: string, checked: boolean) {
+    setForm((current) => ({
+      ...current,
+      modulosDisponiveis: checked
+        ? [...current.modulosDisponiveis, moduleCode]
+        : current.modulosDisponiveis.filter((item) => item !== moduleCode),
+    }));
   }
 
   function resetForm() {
@@ -144,6 +161,7 @@ export default function SupervisoresPage() {
       confirmaSenha: "",
       setorId: setores[0]?.id || "",
       forceChange: true,
+      modulosDisponiveis: ["seguranca-trabalho"],
       ramal: "",
       email: "",
       ativo: true,
@@ -153,10 +171,10 @@ export default function SupervisoresPage() {
   return (
     <div style={styles.page}>
       <div style={styles.header}>
-        <h1 style={styles.title}>Supervisores</h1>
+        <h1 style={styles.title}>Inspetores</h1>
         <div style={styles.metricsRow}>
-          <MetricCard value={supervisores.length} label="Supervisores" />
-          <MetricCard value={setores.length} label="Setores" />
+          <MetricCard value={inspetores.length} label="Inspetores" />
+          <MetricCard value={inspectorModules.length} label="Módulos" />
         </div>
       </div>
 
@@ -165,9 +183,9 @@ export default function SupervisoresPage() {
 
       <section style={styles.grid}>
         <div style={styles.formCard}>
-          <h2 style={styles.cardTitle}>{editingId ? "Editar supervisor" : "Novo supervisor"}</h2>
+          <h2 style={styles.cardTitle}>{editingId ? "Editar inspetor" : "Novo inspetor"}</h2>
           <div style={styles.helperText}>
-            Supervisores operam exclusivamente o módulo de Supervisão Operacional.
+            Inspetores podem acessar múltiplos módulos de inspeção. O módulo operacional não é gerenciado aqui.
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -212,6 +230,23 @@ export default function SupervisoresPage() {
                 </label>
               </div>
 
+              <div style={styles.modulesCard}>
+                <div style={styles.modulesLabel}>Módulos de inspeção</div>
+                <div style={styles.modulesGrid}>
+                  {inspectorModules.map((module) => (
+                    <label key={module.code} style={styles.checkboxRow}>
+                      <input
+                        type="checkbox"
+                        checked={form.modulosDisponiveis.includes(module.code)}
+                        onChange={(e) => handleToggleModule(module.code, e.target.checked)}
+                        style={styles.checkbox}
+                      />
+                      <span style={styles.checkboxLabel}>{module.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div style={styles.checkboxCell}>
                 <label style={styles.checkboxRow}>
                   <input type="checkbox" checked={form.ativo} onChange={(e) => setForm({ ...form, ativo: e.target.checked })} style={styles.checkbox} />
@@ -236,56 +271,60 @@ export default function SupervisoresPage() {
         <section style={styles.tableCard}>
           <div style={styles.tableHeader}>
             <h2 style={styles.cardTitle}>Lista</h2>
-            <span style={styles.countBadge}>{supervisores.length}</span>
+            <span style={styles.countBadge}>{inspetores.length}</span>
           </div>
 
           {loading ? (
-            <div style={styles.loadingCard}>Carregando supervisores...</div>
+            <div style={styles.loadingCard}>Carregando inspetores...</div>
           ) : (
             <div style={styles.tableWrap}>
               <table style={styles.table}>
                 <thead>
                   <tr>
-                    <th style={styles.th}>Supervisor</th>
+                    <th style={styles.th}>Inspetor</th>
                     <th style={styles.th}>Setor</th>
                     <th style={styles.th}>Login</th>
                     <th style={styles.th}>Contato</th>
-                    <th style={styles.th}>Acesso</th>
+                    <th style={styles.th}>Módulos</th>
                     <th style={{ ...styles.th, width: 120 }}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {supervisores.map((supervisor) => (
-                    <tr key={supervisor.id} className="cf-data-row" style={styles.tr}>
+                  {inspetores.map((inspetor) => (
+                    <tr key={inspetor.id} className="cf-data-row" style={styles.tr}>
                       <td style={styles.tdName}>
-                        <div>{supervisor.nomeCompleto}</div>
-                        <div style={styles.metaText}>{supervisor.ativo ? "Ativo" : "Inativo"}</div>
+                        <div>{inspetor.nomeCompleto}</div>
+                        <div style={styles.metaText}>{inspetor.ativo ? "Ativo" : "Inativo"}</div>
                       </td>
-                      <td style={styles.td}><span style={styles.setorBadge}>{supervisor.setorNome}</span></td>
-                      <td style={styles.td}><span style={styles.loginBadge}>{supervisor.login}</span></td>
+                      <td style={styles.td}><span style={styles.setorBadge}>{inspetor.setorNome}</span></td>
+                      <td style={styles.td}><span style={styles.loginBadge}>{inspetor.login}</span></td>
                       <td style={styles.td}>
-                        <div>{supervisor.email || "-"}</div>
-                        <div style={styles.metaText}>{supervisor.ramal || "-"}</div>
+                        <div>{inspetor.email || "-"}</div>
+                        <div style={styles.metaText}>{inspetor.ramal || "-"}</div>
                       </td>
                       <td style={styles.td}>
                         <div style={styles.accessBadges}>
-                          <span style={{ ...styles.badge, ...(supervisor.forceChangePassword ? styles.badgeWarning : styles.badgeSuccess) }}>
-                            {supervisor.forceChangePassword ? "Pendente" : "Liberado"}
+                          {inspetor.modulosDisponiveis.map((moduleCode) => (
+                            <span key={moduleCode} style={{ ...styles.badge, ...(moduleCode === "seguranca-trabalho" ? styles.badgeStp : styles.badgeMaterial) }}>
+                              {moduleCode === "seguranca-trabalho" ? "STP" : "Materiais"}
+                            </span>
+                          ))}
+                          <span style={{ ...styles.badge, ...(inspetor.forceChangePassword ? styles.badgeWarning : styles.badgeSuccess) }}>
+                            {inspetor.forceChangePassword ? "Pendente" : "Liberado"}
                           </span>
-                          <span style={{ ...styles.badge, ...styles.badgeNeutral }}>Operacional</span>
                         </div>
                       </td>
                       <td style={styles.td}>
-                        <button type="button" onClick={() => handleEdit(supervisor)} style={styles.secondarySmallButton}>
+                        <button type="button" onClick={() => handleEdit(inspetor)} style={styles.secondarySmallButton}>
                           Editar
                         </button>
                       </td>
                     </tr>
                   ))}
 
-                  {supervisores.length === 0 ? (
+                  {inspetores.length === 0 ? (
                     <tr>
-                      <td colSpan={6} style={styles.emptyState}>Nenhum supervisor</td>
+                      <td colSpan={6} style={styles.emptyState}>Nenhum inspetor</td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -332,7 +371,7 @@ const styles: Record<string, React.CSSProperties> = {
   metricLabel: { marginTop: 4, fontSize: 12.5, color: "#667085" },
   errorAlert: { background: "#FFF4F2", border: "1px solid #F3C9C5", color: "#912018", borderRadius: 14, padding: "12px 14px", fontSize: 13.5, fontWeight: 600 },
   successAlert: { background: "#EEF8F2", border: "1px solid #CDE8D6", color: "#116032", borderRadius: 14, padding: "12px 14px", fontSize: 13.5, fontWeight: 600 },
-  grid: { display: "grid", gridTemplateColumns: "minmax(340px, 420px) minmax(0, 1fr)", gap: 16, alignItems: "start" },
+  grid: { display: "grid", gridTemplateColumns: "minmax(360px, 460px) minmax(0, 1fr)", gap: 16, alignItems: "start" },
   formCard: { background: "rgba(255,255,255,0.94)", border: "1px solid rgba(217,217,217,0.96)", borderRadius: 20, padding: 18 },
   cardTitle: { margin: 0, fontSize: 18, fontWeight: 700, color: "#1F2937" },
   helperText: { marginTop: 8, fontSize: 13.5, lineHeight: 1.5, color: "#667085" },
@@ -343,6 +382,9 @@ const styles: Record<string, React.CSSProperties> = {
   checkboxRow: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" },
   checkbox: { width: 18, height: 18, accentColor: "#0057B8" },
   checkboxLabel: { fontSize: 14, color: "#344054", fontWeight: 500 },
+  modulesCard: { gridColumn: "1 / -1", borderRadius: 16, border: "1px solid #DDE6F0", background: "#F8FBFF", padding: 14 },
+  modulesLabel: { fontSize: 13.5, fontWeight: 700, color: "#344054", marginBottom: 10 },
+  modulesGrid: { display: "grid", gap: 10 },
   formFooter: { display: "flex", justifyContent: "flex-end", marginTop: 16, gap: 10 },
   primaryButton: { background: "linear-gradient(135deg, #0057B8 0%, #0A6AD7 100%)", color: "#FFFFFF", border: "none", borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
   secondaryButton: { background: "#FFFFFF", color: "#344054", border: "1px solid #D0D5DD", borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
@@ -361,8 +403,9 @@ const styles: Record<string, React.CSSProperties> = {
   loginBadge: { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 96, padding: "6px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: "#EAF2FF", color: "#0057B8", border: "1px solid #C9DDFC" },
   setorBadge: { display: "inline-flex", alignItems: "center", padding: "6px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: "#F5F7FA", color: "#344054", border: "1px solid #DEE7F1" },
   badge: { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 96, padding: "6px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 600 },
-  badgeNeutral: { background: "#EEF4FF", color: "#175CD3", border: "1px solid #C7D7FE" },
   badgeSuccess: { background: "#EAF8EE", color: "#1E7E34", border: "1px solid #B7E1C0" },
+  badgeStp: { background: "#ECFDF3", color: "#027A48", border: "1px solid #ABEFC6" },
+  badgeMaterial: { background: "#EEF4FF", color: "#175CD3", border: "1px solid #C7D7FE" },
   badgeWarning: { background: "#FFF7E8", color: "#B54708", border: "1px solid #F7D29A" },
   secondarySmallButton: { background: "#FFFFFF", color: "#344054", border: "1px solid #D0D5DD", borderRadius: 10, padding: "7px 11px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
   emptyState: { padding: 24, textAlign: "center", color: "#667085", fontSize: 14 },

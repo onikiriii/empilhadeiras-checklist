@@ -8,6 +8,8 @@ public static class CurrentSupervisorClaims
     public const string SupervisorId = "supervisor_id";
     public const string ForceChangePassword = "force_change_password";
     public const string IsMaster = "is_master";
+    public const string UserType = "user_type";
+    public const string AccessModule = "access_module";
 
     public static Guid? GetSetorId(ClaimsPrincipal user)
     {
@@ -31,5 +33,15 @@ public static class CurrentSupervisorClaims
     {
         var value = user.FindFirstValue(IsMaster);
         return bool.TryParse(value, out var isMaster) && isMaster;
+    }
+
+    public static string? GetUserType(ClaimsPrincipal user)
+    {
+        return user.FindFirstValue(UserType);
+    }
+
+    public static bool HasModuleAccess(ClaimsPrincipal user, string moduleCode)
+    {
+        return user.FindAll(AccessModule).Any(claim => string.Equals(claim.Value, moduleCode, StringComparison.OrdinalIgnoreCase));
     }
 }

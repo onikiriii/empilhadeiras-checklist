@@ -17,6 +17,6 @@ public class BootstrapSupervisorOptions
     public string Senha { get; set; } = "CheckFlow@2026!";
     public bool ForceChangePassword { get; set; } = false;
     public bool IsMaster { get; set; } = true;
-    public string SetorNome { get; set; } = "Administracao";
+    public string SetorNome { get; set; } = "Admin";
     public string? Ramal { get; set; } = null;
 }

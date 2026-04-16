@@ -62,6 +62,21 @@ export default function OperadoresPage() {
     setShowForm(true);
   }
 
+  async function handleToggleStatus(operador: Operador) {
+    const proximoStatus = !operador.ativo;
+    if (!confirm(`Tem certeza que deseja ${proximoStatus ? "ativar" : "inativar"} este operador?`)) return;
+
+    try {
+      await api.put(`/api/operadores/${operador.id}`, {
+        nome: operador.nome,
+        ativo: proximoStatus,
+      });
+      loadOperadores();
+    } catch (e: any) {
+      setError(e.message ?? "Erro ao atualizar status do operador");
+    }
+  }
+
   return (
     <div style={styles.page}>
       <div style={styles.header}>
@@ -124,7 +139,7 @@ export default function OperadoresPage() {
                     <th style={styles.th}>Nome</th>
                     <th style={styles.th}>Matrícula</th>
                     <th style={styles.th}>Status</th>
-                    <th style={{ ...styles.th, width: 110 }}>Ações</th>
+                    <th style={{ ...styles.th, width: 190 }}>Ações</th>
                   </tr>
                 </thead>
 
@@ -144,7 +159,15 @@ export default function OperadoresPage() {
                           </span>
                         </td>
                         <td style={styles.td}>
-                          <button onClick={() => handleEdit(operador)} style={styles.secondarySmallButton}>Editar</button>
+                          <div style={styles.actionRow}>
+                            <button onClick={() => handleEdit(operador)} style={styles.secondarySmallButton}>Editar</button>
+                            <button
+                              onClick={() => handleToggleStatus(operador)}
+                              style={operador.ativo ? styles.dangerSmallButton : styles.successSmallButton}
+                            >
+                              {operador.ativo ? "Inativar" : "Ativar"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -210,6 +233,9 @@ const styles: Record<string, React.CSSProperties> = {
   successButton: { background: "#1E7E34", color: "#FFFFFF", border: "none", borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 700, cursor: "pointer" },
   secondaryButton: { background: "#FFFFFF", color: "#344054", border: "1px solid #D0D5DD", borderRadius: 12, padding: "11px 16px", fontSize: 13.5, fontWeight: 600, cursor: "pointer" },
   secondarySmallButton: { background: "#FFFFFF", color: "#344054", border: "1px solid #D0D5DD", borderRadius: 10, padding: "7px 11px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
+  successSmallButton: { background: "#EAF8EE", color: "#1E7E34", border: "1px solid #B7E1C0", borderRadius: 10, padding: "7px 11px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
+  dangerSmallButton: { background: "#FFF1F0", color: "#B42318", border: "1px solid #F2B8B5", borderRadius: 10, padding: "7px 11px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" },
+  actionRow: { display: "flex", gap: 8, flexWrap: "wrap" },
   loadingCard: { padding: 24, textAlign: "center", fontSize: 14, fontWeight: 600, color: "#475467" },
   tableCard: { background: "rgba(255,255,255,0.94)", border: "1px solid rgba(217,217,217,0.96)", borderRadius: 20, overflow: "hidden", minHeight: 440 },
   tableHeader: { padding: "16px 18px", borderBottom: "1px solid #EAECF0", display: "flex", justifyContent: "space-between", alignItems: "center" },

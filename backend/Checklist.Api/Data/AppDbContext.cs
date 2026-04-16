@@ -17,8 +17,13 @@ public class AppDbContext : DbContext
     public DbSet<ChecklistItem> ChecklistItens { get; set; } = null!;
     public DbSet<ChecklistItemAcao> ChecklistItensAcoes { get; set; } = null!;
     public DbSet<ChecklistItemAcaoHistorico> ChecklistItensAcoesHistorico { get; set; } = null!;
+    public DbSet<StpAreaChecklistTemplate> StpAreaChecklistTemplates { get; set; } = null!;
+    public DbSet<StpAreaChecklistTemplateItem> StpAreaChecklistTemplateItens { get; set; } = null!;
+    public DbSet<StpAreaChecklist> StpAreaChecklists { get; set; } = null!;
+    public DbSet<StpAreaChecklistItem> StpAreaChecklistItens { get; set; } = null!;
     public DbSet<Setor> Setores { get; set; } = null!;
     public DbSet<UsuarioSupervisor> UsuariosSupervisores { get; set; } = null!;
+    public DbSet<UsuarioSupervisorModulo> UsuariosSupervisoresModulos { get; set; } = null!;
     public DbSet<FechamentoChecklistMensal> FechamentosChecklistMensais { get; set; } = null!;
     public DbSet<FechamentoChecklistMensalChecklist> FechamentosChecklistMensaisChecklists { get; set; } = null!;
 
@@ -41,6 +46,7 @@ public class AppDbContext : DbContext
             e.Property(x => x.Email).HasMaxLength(150);
             e.Property(x => x.Ramal).HasMaxLength(20);
             e.Property(x => x.SenhaHash).HasMaxLength(500).IsRequired();
+            e.Property(x => x.TipoUsuario).HasConversion<int>();
 
             e.HasIndex(x => x.Login).IsUnique();
             e.HasIndex(x => x.Email).IsUnique();
@@ -202,6 +208,90 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(x => x.CriadoPorSupervisorId)
                 .HasConstraintName("FK_CIAHistorico_Supervisor")
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StpAreaChecklistTemplate>(e =>
+        {
+            e.Property(x => x.Codigo).HasMaxLength(40).IsRequired();
+            e.Property(x => x.Nome).HasMaxLength(160).IsRequired();
+
+            e.HasIndex(x => new { x.SetorId, x.Codigo }).IsUnique();
+
+            e.HasOne(x => x.Setor)
+                .WithMany()
+                .HasForeignKey(x => x.SetorId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<UsuarioSupervisorModulo>(e =>
+        {
+            e.Property(x => x.Modulo).HasConversion<int>();
+            e.HasIndex(x => new { x.UsuarioSupervisorId, x.Modulo }).IsUnique();
+
+            e.HasOne(x => x.UsuarioSupervisor)
+                .WithMany(x => x.Modulos)
+                .HasForeignKey(x => x.UsuarioSupervisorId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<StpAreaChecklistTemplateItem>(e =>
+        {
+            e.Property(x => x.Descricao).HasMaxLength(300).IsRequired();
+            e.Property(x => x.Instrucao).HasMaxLength(2000);
+
+            e.HasIndex(x => new { x.TemplateId, x.Ordem }).IsUnique();
+
+            e.HasOne(x => x.Template)
+                .WithMany(x => x.Itens)
+                .HasForeignKey(x => x.TemplateId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<StpAreaChecklist>(e =>
+        {
+            e.Property(x => x.ResponsavelPresenteNome).HasMaxLength(160).IsRequired();
+            e.Property(x => x.ResponsavelPresenteCargo).HasMaxLength(120);
+            e.Property(x => x.ComportamentosPreventivosObservados).HasMaxLength(4000);
+            e.Property(x => x.AtosInsegurosObservados).HasMaxLength(4000);
+            e.Property(x => x.CondicoesInsegurasConstatadas).HasMaxLength(4000);
+            e.Property(x => x.AssinaturaInspetorBase64).HasColumnType("longtext").IsRequired();
+            e.Property(x => x.AssinaturaResponsavelPresenteBase64).HasColumnType("longtext").IsRequired();
+
+            e.HasIndex(x => new { x.SetorId, x.DataReferencia });
+
+            e.HasOne(x => x.Setor)
+                .WithMany()
+                .HasForeignKey(x => x.SetorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.Template)
+                .WithMany()
+                .HasForeignKey(x => x.TemplateId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.InspetorSupervisor)
+                .WithMany()
+                .HasForeignKey(x => x.InspetorSupervisorId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<StpAreaChecklistItem>(e =>
+        {
+            e.Property(x => x.Descricao).HasMaxLength(300).IsRequired();
+            e.Property(x => x.Instrucao).HasMaxLength(2000);
+            e.Property(x => x.Observacao).HasMaxLength(2000);
+
+            e.HasIndex(x => new { x.ChecklistId, x.Ordem }).IsUnique();
+
+            e.HasOne(x => x.Checklist)
+                .WithMany(x => x.Itens)
+                .HasForeignKey(x => x.ChecklistId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(x => x.TemplateItem)
+                .WithMany()
+                .HasForeignKey(x => x.TemplateItemId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

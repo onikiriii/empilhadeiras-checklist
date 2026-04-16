@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Checklist.Api.Models;
 using Checklist.Api.Options;
+using Checklist.Api.Support;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -32,8 +33,12 @@ public class JwtTokenService
             new(CurrentSupervisorClaims.SupervisorId, supervisor.Id.ToString()),
             new(CurrentSupervisorClaims.SetorId, supervisor.SetorId.ToString()),
             new(CurrentSupervisorClaims.ForceChangePassword, supervisor.ForceChangePassword.ToString().ToLowerInvariant()),
-            new(CurrentSupervisorClaims.IsMaster, supervisor.IsMaster.ToString().ToLowerInvariant())
+            new(CurrentSupervisorClaims.IsMaster, supervisor.IsMaster.ToString().ToLowerInvariant()),
+            new(CurrentSupervisorClaims.UserType, supervisor.TipoUsuario.ToString())
         };
+
+        foreach (var modulo in supervisor.Modulos)
+            claims.Add(new Claim(CurrentSupervisorClaims.AccessModule, AccessModuleCatalog.ToCode(modulo.Modulo)));
 
         if (!string.IsNullOrWhiteSpace(supervisor.Email))
             claims.Add(new Claim(JwtRegisteredClaimNames.Email, supervisor.Email));

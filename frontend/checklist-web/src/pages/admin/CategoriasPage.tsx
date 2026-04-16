@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../../api";
 
+const fechamentoOptions = [
+  { value: 0, label: "Sem fechamento mensal" },
+  { value: 1, label: "Empilhadeira a combustao" },
+  { value: 2, label: "Empilhadeira eletrica" },
+];
+
 type Categoria = {
   id: string;
   nome: string;
   ativa: boolean;
+  modeloFechamentoMensal: number;
 };
 
 export default function CategoriasPage() {
@@ -13,7 +20,7 @@ export default function CategoriasPage() {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ nome: "", ativa: true });
+  const [form, setForm] = useState({ nome: "", ativa: true, modeloFechamentoMensal: 0 });
 
   useEffect(() => {
     loadCategorias();
@@ -36,7 +43,11 @@ export default function CategoriasPage() {
     setError("");
 
     try {
-      const payload = { nome: form.nome, ativa: form.ativa };
+      const payload = {
+        nome: form.nome,
+        ativa: form.ativa,
+        modeloFechamentoMensal: form.modeloFechamentoMensal,
+      };
 
       if (editingId) {
         await api.put(`/api/supervisor/categorias-equipamento/${editingId}`, payload);
@@ -46,7 +57,7 @@ export default function CategoriasPage() {
 
       setShowForm(false);
       setEditingId(null);
-      setForm({ nome: "", ativa: true });
+      setForm({ nome: "", ativa: true, modeloFechamentoMensal: 0 });
       loadCategorias();
     } catch (e: any) {
       setError(e.message ?? "Erro ao salvar categoria");
@@ -54,19 +65,27 @@ export default function CategoriasPage() {
   }
 
   function handleEdit(categoria: Categoria) {
-    setForm({ nome: categoria.nome, ativa: categoria.ativa });
+    setForm({
+      nome: categoria.nome,
+      ativa: categoria.ativa,
+      modeloFechamentoMensal: categoria.modeloFechamentoMensal,
+    });
     setEditingId(categoria.id);
     setShowForm(true);
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Tem certeza que deseja excluir esta categoria?")) return;
-
+  async function handleToggleStatus(categoria: Categoria) {
+    const proximoStatus = !categoria.ativa;
+    if (!confirm(`Tem certeza que deseja ${proximoStatus ? "ativar" : "inativar"} esta categoria?`)) return;
     try {
-      await api.delete(`/api/supervisor/categorias-equipamento/${id}`);
+      await api.put(`/api/supervisor/categorias-equipamento/${categoria.id}`, {
+        nome: categoria.nome,
+        ativa: proximoStatus,
+        modeloFechamentoMensal: categoria.modeloFechamentoMensal,
+      });
       loadCategorias();
     } catch (e: any) {
-      setError(e.message ?? "Erro ao excluir categoria");
+      setError(e.message ?? "Erro ao atualizar status da categoria");
     }
   }
 
@@ -86,7 +105,7 @@ export default function CategoriasPage() {
           onClick={() => {
             setShowForm(!showForm);
             setEditingId(null);
-            setForm({ nome: "", ativa: true });
+            setForm({ nome: "", ativa: true, modeloFechamentoMensal: 0 });
           }}
           style={styles.primaryButton}
         >
@@ -112,6 +131,21 @@ export default function CategoriasPage() {
                 />
               </div>
 
+              <div>
+                <label style={styles.label}>Modelo de fechamento mensal</label>
+                <select
+                  value={form.modeloFechamentoMensal}
+                  onChange={(e) => setForm({ ...form, modeloFechamentoMensal: Number(e.target.value) })}
+                  style={styles.input}
+                >
+                  {fechamentoOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <label style={styles.checkboxRow}>
                 <input
                   type="checkbox"
@@ -131,7 +165,7 @@ export default function CategoriasPage() {
                   onClick={() => {
                     setShowForm(false);
                     setEditingId(null);
-                    setForm({ nome: "", ativa: true });
+                    setForm({ nome: "", ativa: true, modeloFechamentoMensal: 0 });
                   }}
                   style={styles.secondaryButton}
                 >
@@ -177,7 +211,12 @@ export default function CategoriasPage() {
                       <td style={styles.td}>
                         <div style={styles.actionRow}>
                           <button onClick={() => handleEdit(categoria)} style={styles.secondarySmallButton}>Editar</button>
-                          <button onClick={() => handleDelete(categoria.id)} style={styles.dangerSmallButton}>Excluir</button>
+                          <button
+                            onClick={() => handleToggleStatus(categoria)}
+                            style={categoria.ativa ? styles.dangerSmallButton : styles.successSmallButton}
+                          >
+                            {categoria.ativa ? "Inativar" : "Ativar"}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -360,6 +399,16 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#FFFFFF",
     color: "#344054",
     border: "1px solid #D0D5DD",
+    borderRadius: 10,
+    padding: "7px 11px",
+    fontSize: 12.5,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  successSmallButton: {
+    background: "#EAF8EE",
+    color: "#1E7E34",
+    border: "1px solid #B7E1C0",
     borderRadius: 10,
     padding: "7px 11px",
     fontSize: 12.5,

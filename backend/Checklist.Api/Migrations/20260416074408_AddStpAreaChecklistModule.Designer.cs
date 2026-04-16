@@ -3,6 +3,7 @@ using System;
 using Checklist.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Checklist.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260416074408_AddStpAreaChecklistModule")]
+    partial class AddStpAreaChecklistModule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -738,6 +741,16 @@ namespace Checklist.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<bool>("PodeAcessarSegurancaTrabalho")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("PodeAcessarSupervisaoOperacional")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Ramal")
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
@@ -755,9 +768,6 @@ namespace Checklist.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<int>("TipoUsuario")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
@@ -769,29 +779,6 @@ namespace Checklist.Api.Migrations
                     b.HasIndex("SetorId");
 
                     b.ToTable("UsuariosSupervisores");
-                });
-
-            modelBuilder.Entity("Checklist.Api.Models.UsuarioSupervisorModulo", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("char(36)");
-
-                    b.Property<DateTime>("CriadoEm")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("Modulo")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("UsuarioSupervisorId")
-                        .HasColumnType("char(36)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UsuarioSupervisorId", "Modulo")
-                        .IsUnique();
-
-                    b.ToTable("UsuariosSupervisoresModulos");
                 });
 
             modelBuilder.Entity("Checklist.Api.Models.CategoriaEquipamento", b =>
@@ -1097,17 +1084,6 @@ namespace Checklist.Api.Migrations
                     b.Navigation("Setor");
                 });
 
-            modelBuilder.Entity("Checklist.Api.Models.UsuarioSupervisorModulo", b =>
-                {
-                    b.HasOne("Checklist.Api.Models.UsuarioSupervisor", "UsuarioSupervisor")
-                        .WithMany("Modulos")
-                        .HasForeignKey("UsuarioSupervisorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("UsuarioSupervisor");
-                });
-
             modelBuilder.Entity("Checklist.Api.Models.CategoriaEquipamento", b =>
                 {
                     b.Navigation("ChecklistItensTemplate");
@@ -1143,11 +1119,6 @@ namespace Checklist.Api.Migrations
             modelBuilder.Entity("Checklist.Api.Models.StpAreaChecklistTemplate", b =>
                 {
                     b.Navigation("Itens");
-                });
-
-            modelBuilder.Entity("Checklist.Api.Models.UsuarioSupervisor", b =>
-                {
-                    b.Navigation("Modulos");
                 });
 #pragma warning restore 612, 618
         }

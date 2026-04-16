@@ -218,7 +218,7 @@ export default function HomePage() {
 
         {sucesso === "1" ? (
           <div className="cf-alert cf-alert-success">
-            Checklist enviado com sucesso. Voce ja pode iniciar uma nova inspecao.
+            Checklist enviado com sucesso. Voce ja pode iniciar uma nova inspeção.
           </div>
         ) : null}
 

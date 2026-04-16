@@ -46,3 +46,75 @@ export type ChecklistDto = {
     imagemNokMimeType?: string | null;
   }>;
 };
+
+export type StpAreaChecklistResultado = "Check" | "X";
+
+export type StpAreaChecklistTemplateSummaryDto = {
+  id: string;
+  setorId: string;
+  codigo: string;
+  nome: string;
+  ativo: boolean;
+  totalItens: number;
+};
+
+export type StpAreaChecklistTemplateItemDto = {
+  id: string;
+  ordem: number;
+  descricao: string;
+  instrucao?: string | null;
+  ativo: boolean;
+};
+
+export type StpAreaChecklistTemplateDetailDto = {
+  id: string;
+  setorId: string;
+  codigo: string;
+  nome: string;
+  ativo: boolean;
+  itens: StpAreaChecklistTemplateItemDto[];
+};
+
+export type StpAreaChecklistItemDto = {
+  id: string;
+  templateItemId: string;
+  ordem: number;
+  descricao: string;
+  instrucao?: string | null;
+  resultado: StpAreaChecklistResultado;
+  observacao?: string | null;
+};
+
+export type StpAreaChecklistListItemDto = {
+  id: string;
+  templateId: string;
+  templateCodigo: string;
+  templateNome: string;
+  dataRealizacao: string;
+  inspetorNomeCompleto: string;
+  responsavelPresenteNome: string;
+  responsavelPresenteCargo?: string | null;
+  totalItens: number;
+  totalCheck: number;
+  totalX: number;
+};
+
+export type StpAreaChecklistDetailDto = {
+  id: string;
+  setorId: string;
+  templateId: string;
+  templateCodigo: string;
+  templateNome: string;
+  dataRealizacao: string;
+  dataReferencia: string;
+  inspetorSupervisorId: string;
+  inspetorNomeCompleto: string;
+  responsavelPresenteNome: string;
+  responsavelPresenteCargo?: string | null;
+  comportamentosPreventivosObservados?: string | null;
+  atosInsegurosObservados?: string | null;
+  condicoesInsegurasConstatadas?: string | null;
+  assinaturaInspetorBase64: string;
+  assinaturaResponsavelPresenteBase64: string;
+  itens: StpAreaChecklistItemDto[];
+};

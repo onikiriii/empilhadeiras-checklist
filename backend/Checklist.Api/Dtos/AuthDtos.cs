@@ -1,3 +1,4 @@
+using Checklist.Api.Models;
 using System.ComponentModel.DataAnnotations;
 
 namespace Checklist.Api.Dtos;
@@ -23,7 +24,9 @@ public record SupervisorAuthDto(
     Guid SetorId,
     string SetorNome,
     bool ForceChangePassword,
-    bool IsMaster
+    bool IsMaster,
+    UsuarioTipoAcesso TipoUsuario,
+    IReadOnlyList<string> ModulosDisponiveis
 );
 
 public record LoginSupervisorResponse(

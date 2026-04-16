@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { api } from "./api";
 import {
   AUTH_UNAUTHORIZED_EVENT,
+  type AccessModule,
   type AuthSession,
   clearStoredAuthSession,
   getStoredAuthSession,
@@ -20,7 +21,37 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function getDefaultAdminPath(session: AuthSession | null | undefined) {
-  return session?.supervisor.isMaster ? "/admin/setores" : "/admin/dashboard";
+  if (session?.supervisor.isMaster) {
+    return "/admin/setores";
+  }
+
+  const modules = session?.supervisor.modulosDisponiveis ?? [];
+
+  if (modules.length > 1) {
+    return "/modulos";
+  }
+
+  if (modules.includes("inspecao-materiais")) {
+    return "/materiais/dashboard";
+  }
+
+  if (modules.includes("seguranca-trabalho")) {
+    return "/stp/dashboard";
+  }
+
+  return "/admin/dashboard";
+}
+
+export function hasModuleAccess(session: AuthSession | null | undefined, module: AccessModule) {
+  if (!session || session.supervisor.isMaster) {
+    return false;
+  }
+
+  return session.supervisor.modulosDisponiveis.includes(module);
+}
+
+export function isInspector(session: AuthSession | null | undefined) {
+  return session?.supervisor.tipoUsuario === "Inspetor";
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -166,6 +197,62 @@ export function RequireSectorSupervisor({ children }: { children: React.ReactNod
   }
 
   if (session.supervisor.isMaster) {
+    return <Navigate to={getDefaultAdminPath(session)} replace />;
+  }
+
+  if (!hasModuleAccess(session, "supervisao-operacional")) {
+    return <Navigate to={getDefaultAdminPath(session)} replace />;
+  }
+
+  return <>{children}</>;
+}
+
+export function RequireSafetyWorkModule({ children }: { children: React.ReactNode }) {
+  const { session, isBootstrapping } = useAuth();
+
+  if (isBootstrapping) {
+    return <FullscreenState title="Carregando seguranca do trabalho" subtitle="Preparando o ambiente STP." />;
+  }
+
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (session.supervisor.forceChangePassword) {
+    return <Navigate to="/primeiro-acesso" replace />;
+  }
+
+  if (session.supervisor.isMaster) {
+    return <Navigate to={getDefaultAdminPath(session)} replace />;
+  }
+
+  if (!hasModuleAccess(session, "seguranca-trabalho")) {
+    return <Navigate to={getDefaultAdminPath(session)} replace />;
+  }
+
+  return <>{children}</>;
+}
+
+export function RequireMaterialsInspectionModule({ children }: { children: React.ReactNode }) {
+  const { session, isBootstrapping } = useAuth();
+
+  if (isBootstrapping) {
+    return <FullscreenState title="Carregando inspecao de materiais" subtitle="Preparando o ambiente de materiais." />;
+  }
+
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (session.supervisor.forceChangePassword) {
+    return <Navigate to="/primeiro-acesso" replace />;
+  }
+
+  if (session.supervisor.isMaster) {
+    return <Navigate to={getDefaultAdminPath(session)} replace />;
+  }
+
+  if (!hasModuleAccess(session, "inspecao-materiais")) {
     return <Navigate to={getDefaultAdminPath(session)} replace />;
   }
 
