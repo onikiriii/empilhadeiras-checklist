@@ -44,7 +44,10 @@ export default function AdminLayout() {
 
   const isMaster = !!session?.supervisor.isMaster;
   const menuItems = isMaster ? masterMenuItems : supervisorMenuItems;
-  const currentTitle = pageTitles[location.pathname] || "Painel Administrativo";
+  const currentTitle =
+    location.pathname.startsWith("/admin/itens-nao-ok/item/")
+      ? "Itens nao OK"
+      : pageTitles[location.pathname] || "Painel Administrativo";
   const userInitial = useMemo(() => session?.supervisor.nome?.trim()?.charAt(0)?.toUpperCase() || "C", [session]);
   const scopeLabel = isMaster ? "CheckFlow" : (session?.supervisor.setorNome ?? "Setor");
   const userScope = isMaster ? "Admin" : (session?.supervisor.setorNome ?? "Setor");
