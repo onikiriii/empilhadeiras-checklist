@@ -1,6 +1,8 @@
 # CheckFlow
 
-Sistema corporativo para checklist operacional de empilhadeiras, supervisão de não conformidades, inspeções de segurança do trabalho e administração de catálogos operacionais.
+Versão atual: `1.0.0`
+
+Sistema para checklist operacional de empilhadeiras, supervisão de não conformidades, inspeções de segurança do trabalho e administração de catálogos operacionais.
 
 ## Escopo funcional
 
@@ -105,6 +107,7 @@ empilhadeiras-checklist/
 |   `-- checklist-web/
 |-- docs/
 |-- infra/
+|-- CHANGELOG.md
 |-- DEPLOY.md
 |-- empilhadeiras-checklist.sln
 `-- README.md
@@ -156,7 +159,7 @@ Auth__Audience=CheckFlow.Web
 Variável principal do frontend:
 
 ```env
-VITE_API_BASE_URL=https://api.checkflow.empresa.com.br
+VITE_API_BASE_URL=http://localhost:5204
 ```
 
 ## Execução local
@@ -200,15 +203,6 @@ cd frontend/checklist-web
 npm run build
 ```
 
-## Operação corporativa
-
-- frontend e backend em infraestrutura corporativa ou homologada
-- banco MySQL corporativo
-- segredos fora do repositório
-- SSL habilitado para conexão com banco
-- CORS restrito a origens explícitas
-- migrations controladas pelo processo de implantação
-
 ## Observabilidade
 
 Endpoint exposto:
@@ -217,6 +211,7 @@ Endpoint exposto:
 
 ## Documentação complementar
 
+- [CHANGELOG.md](CHANGELOG.md)
 - [DEPLOY.md](DEPLOY.md)
 - [docs/mysql-corporate-migration-guide.md](docs/mysql-corporate-migration-guide.md)
 - [docs/architecture.md](docs/architecture.md)
