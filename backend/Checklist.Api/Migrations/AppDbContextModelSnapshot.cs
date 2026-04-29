@@ -472,20 +472,39 @@ namespace Checklist.Api.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<bool>("ForceChangePassword")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Login")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)");
+
                     b.Property<string>("Matricula")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
 
                     b.Property<string>("Nome")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<string>("SenhaHash")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
 
                     b.Property<Guid>("SetorId")
                         .HasColumnType("char(36)");
 
+                    b.Property<DateTime?>("UltimoLoginEm")
+                        .HasColumnType("datetime(6)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Login")
+                        .IsUnique();
 
                     b.HasIndex("Matricula")
                         .IsUnique();
@@ -528,6 +547,9 @@ namespace Checklist.Api.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid?>("AreaInspecaoId")
                         .HasColumnType("char(36)");
 
                     b.Property<DateTime>("AssinadoInspetorEm")
@@ -580,12 +602,19 @@ namespace Checklist.Api.Migrations
                     b.Property<Guid>("SetorId")
                         .HasColumnType("char(36)");
 
+                    b.Property<Guid>("SetorInspecionadoId")
+                        .HasColumnType("char(36)");
+
                     b.Property<Guid>("TemplateId")
                         .HasColumnType("char(36)");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AreaInspecaoId");
+
                     b.HasIndex("InspetorSupervisorId");
+
+                    b.HasIndex("SetorInspecionadoId");
 
                     b.HasIndex("TemplateId");
 
@@ -704,6 +733,191 @@ namespace Checklist.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("StpAreaChecklistTemplateItens");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpAreaInspecao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("varchar(160)");
+
+                    b.Property<Guid>("ResponsavelSupervisorId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("SetorId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResponsavelSupervisorId");
+
+                    b.HasIndex("SetorId", "Nome")
+                        .IsUnique();
+
+                    b.ToTable("StpAreasInspecao");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpDocumentoEmpresa", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("varchar(180)");
+
+                    b.Property<Guid>("SetorId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SetorId", "Nome")
+                        .IsUnique();
+
+                    b.ToTable("StpDocumentosEmpresas");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpDocumentoEmpresaArquivo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte[]>("Conteudo")
+                        .IsRequired()
+                        .HasColumnType("longblob");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("EnviadoPorSupervisorId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("MimeType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("varchar(180)");
+
+                    b.Property<string>("NomeArquivoOriginal")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("varchar(260)");
+
+                    b.Property<long>("TamanhoBytes")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId");
+
+                    b.HasIndex("EnviadoPorSupervisorId");
+
+                    b.ToTable("StpDocumentosEmpresasArquivos");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpDocumentoFuncionario", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Cargo")
+                        .HasMaxLength(160)
+                        .HasColumnType("varchar(160)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EmpresaId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("varchar(180)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmpresaId", "Nome")
+                        .IsUnique();
+
+                    b.ToTable("StpDocumentosFuncionarios");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpDocumentoFuncionarioArquivo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<byte[]>("Conteudo")
+                        .IsRequired()
+                        .HasColumnType("longblob");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid>("EnviadoPorSupervisorId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("FuncionarioId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("MimeType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("varchar(180)");
+
+                    b.Property<string>("NomeArquivoOriginal")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("varchar(260)");
+
+                    b.Property<long>("TamanhoBytes")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnviadoPorSupervisorId");
+
+                    b.HasIndex("FuncionarioId");
+
+                    b.ToTable("StpDocumentosFuncionariosArquivos");
                 });
 
             modelBuilder.Entity("Checklist.Api.Models.UsuarioSupervisor", b =>
@@ -1020,6 +1234,11 @@ namespace Checklist.Api.Migrations
 
             modelBuilder.Entity("Checklist.Api.Models.StpAreaChecklist", b =>
                 {
+                    b.HasOne("Checklist.Api.Models.StpAreaInspecao", "AreaInspecao")
+                        .WithMany()
+                        .HasForeignKey("AreaInspecaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Checklist.Api.Models.UsuarioSupervisor", "InspetorSupervisor")
                         .WithMany()
                         .HasForeignKey("InspetorSupervisorId")
@@ -1032,15 +1251,25 @@ namespace Checklist.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Checklist.Api.Models.Setor", "SetorInspecionado")
+                        .WithMany()
+                        .HasForeignKey("SetorInspecionadoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Checklist.Api.Models.StpAreaChecklistTemplate", "Template")
                         .WithMany()
                         .HasForeignKey("TemplateId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("AreaInspecao");
+
                     b.Navigation("InspetorSupervisor");
 
                     b.Navigation("Setor");
+
+                    b.Navigation("SetorInspecionado");
 
                     b.Navigation("Template");
                 });
@@ -1084,6 +1313,85 @@ namespace Checklist.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Template");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpAreaInspecao", b =>
+                {
+                    b.HasOne("Checklist.Api.Models.UsuarioSupervisor", "ResponsavelSupervisor")
+                        .WithMany()
+                        .HasForeignKey("ResponsavelSupervisorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Checklist.Api.Models.Setor", "Setor")
+                        .WithMany()
+                        .HasForeignKey("SetorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ResponsavelSupervisor");
+
+                    b.Navigation("Setor");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpDocumentoEmpresa", b =>
+                {
+                    b.HasOne("Checklist.Api.Models.Setor", "Setor")
+                        .WithMany()
+                        .HasForeignKey("SetorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Setor");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpDocumentoEmpresaArquivo", b =>
+                {
+                    b.HasOne("Checklist.Api.Models.StpDocumentoEmpresa", "Empresa")
+                        .WithMany("Documentos")
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Checklist.Api.Models.UsuarioSupervisor", "EnviadoPorSupervisor")
+                        .WithMany()
+                        .HasForeignKey("EnviadoPorSupervisorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Empresa");
+
+                    b.Navigation("EnviadoPorSupervisor");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpDocumentoFuncionario", b =>
+                {
+                    b.HasOne("Checklist.Api.Models.StpDocumentoEmpresa", "Empresa")
+                        .WithMany("Funcionarios")
+                        .HasForeignKey("EmpresaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Empresa");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpDocumentoFuncionarioArquivo", b =>
+                {
+                    b.HasOne("Checklist.Api.Models.UsuarioSupervisor", "EnviadoPorSupervisor")
+                        .WithMany()
+                        .HasForeignKey("EnviadoPorSupervisorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Checklist.Api.Models.StpDocumentoFuncionario", "Funcionario")
+                        .WithMany("Documentos")
+                        .HasForeignKey("FuncionarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("EnviadoPorSupervisor");
+
+                    b.Navigation("Funcionario");
                 });
 
             modelBuilder.Entity("Checklist.Api.Models.UsuarioSupervisor", b =>
@@ -1143,6 +1451,18 @@ namespace Checklist.Api.Migrations
             modelBuilder.Entity("Checklist.Api.Models.StpAreaChecklistTemplate", b =>
                 {
                     b.Navigation("Itens");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpDocumentoEmpresa", b =>
+                {
+                    b.Navigation("Documentos");
+
+                    b.Navigation("Funcionarios");
+                });
+
+            modelBuilder.Entity("Checklist.Api.Models.StpDocumentoFuncionario", b =>
+                {
+                    b.Navigation("Documentos");
                 });
 
             modelBuilder.Entity("Checklist.Api.Models.UsuarioSupervisor", b =>

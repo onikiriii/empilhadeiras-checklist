@@ -1,14 +1,36 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Checklist.Api.Models;
 
 public class Operador
 {
-    public Guid Id { get; set; }
+    [Required]
+    public Guid Id { get; set; } = Guid.NewGuid();
 
+    [Required]
     public Guid SetorId { get; set; }
+
     public Setor Setor { get; set; } = null!;
 
-    public string Matricula { get; set; } = ""; // único
-    public string Nome { get; set; } = "";
+    [Required]
+    [MaxLength(40)]
+    public string Matricula { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(120)]
+    public string Nome { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(60)]
+    public string Login { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(500)]
+    public string SenhaHash { get; set; } = string.Empty;
+
+    public bool ForceChangePassword { get; set; } = true;
+
+    public DateTime? UltimoLoginEm { get; set; }
 
     public bool Ativo { get; set; } = true;
 

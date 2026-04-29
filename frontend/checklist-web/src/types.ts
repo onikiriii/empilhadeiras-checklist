@@ -75,6 +75,20 @@ export type StpAreaChecklistTemplateDetailDto = {
   itens: StpAreaChecklistTemplateItemDto[];
 };
 
+export type StpAreaResponsavelSupervisorDto = {
+  id: string;
+  nomeCompleto: string;
+};
+
+export type StpAreaInspecaoDto = {
+  id: string;
+  setorId: string;
+  nome: string;
+  responsavelSupervisorId: string;
+  responsavelSupervisorNomeCompleto: string;
+  ativa: boolean;
+};
+
 export type StpAreaChecklistItemDto = {
   id: string;
   templateItemId: string;
@@ -92,8 +106,10 @@ export type StpAreaChecklistListItemDto = {
   templateNome: string;
   dataRealizacao: string;
   inspetorNomeCompleto: string;
-  responsavelPresenteNome: string;
-  responsavelPresenteCargo?: string | null;
+  areaInspecaoId?: string | null;
+  areaInspecaoNome: string;
+  responsavelAreaSupervisorId?: string | null;
+  responsavelAreaNomeCompleto: string;
   totalItens: number;
   totalCheck: number;
   totalX: number;
@@ -102,6 +118,8 @@ export type StpAreaChecklistListItemDto = {
 export type StpAreaChecklistDetailDto = {
   id: string;
   setorId: string;
+  areaInspecaoId?: string | null;
+  areaInspecaoNome: string;
   templateId: string;
   templateCodigo: string;
   templateNome: string;
@@ -109,12 +127,39 @@ export type StpAreaChecklistDetailDto = {
   dataReferencia: string;
   inspetorSupervisorId: string;
   inspetorNomeCompleto: string;
-  responsavelPresenteNome: string;
-  responsavelPresenteCargo?: string | null;
+  responsavelAreaSupervisorId?: string | null;
+  responsavelAreaNomeCompleto: string;
   comportamentosPreventivosObservados?: string | null;
   atosInsegurosObservados?: string | null;
   condicoesInsegurasConstatadas?: string | null;
   assinaturaInspetorBase64: string;
   assinaturaResponsavelPresenteBase64: string;
   itens: StpAreaChecklistItemDto[];
+};
+
+export type StpDocumentoEmpresaSummaryDto = {
+  id: string;
+  setorId: string;
+  nome: string;
+  ativa: boolean;
+  totalDocumentos: number;
+  totalFuncionarios: number;
+};
+
+export type StpDocumentoFuncionarioSummaryDto = {
+  id: string;
+  empresaId: string;
+  nome: string;
+  cargo?: string | null;
+  ativo: boolean;
+  totalDocumentos: number;
+};
+
+export type StpDocumentoArquivoDto = {
+  id: string;
+  nome: string;
+  nomeArquivoOriginal: string;
+  mimeType: string;
+  tamanhoBytes: number;
+  criadoEm: string;
 };

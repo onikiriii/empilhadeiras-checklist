@@ -53,4 +53,30 @@ public class JwtTokenService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    public string GenerateOperatorToken(Operador operador)
+    {
+        var expiresAt = GetExpirationUtc();
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_authOptions.JwtKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, operador.Id.ToString()),
+            new(JwtRegisteredClaimNames.UniqueName, operador.Login),
+            new(CurrentOperadorClaims.OperadorId, operador.Id.ToString()),
+            new(CurrentOperadorClaims.SetorId, operador.SetorId.ToString()),
+            new(CurrentOperadorClaims.ForceChangePassword, operador.ForceChangePassword.ToString().ToLowerInvariant())
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: _authOptions.Issuer,
+            audience: _authOptions.Audience,
+            claims: claims,
+            notBefore: DateTime.UtcNow,
+            expires: expiresAt,
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
 }

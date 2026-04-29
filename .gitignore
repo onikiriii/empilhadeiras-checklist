@@ -3,8 +3,13 @@ node_modules/
 frontend/checklist-web/node_modules/
 
 # Build outputs
-backend/Checklist.Api/bin/
-backend/Checklist.Api/obj/
+**/bin/
+**/obj/
+**/dist/
+**/dist-ssr/
+**/TestResults/
+artifacts/
+backend/Checklist.Api/temp-build-*/
 
 # Environment files
 .env
@@ -30,6 +35,7 @@ npm-debug.log*
 
 # Test coverage
 coverage/
+*.trx
 
 # Temporary files
 *.tmp

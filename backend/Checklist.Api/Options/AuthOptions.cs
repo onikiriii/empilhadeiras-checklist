@@ -11,12 +11,12 @@ public class AuthOptions
 
 public class BootstrapSupervisorOptions
 {
-    public string Nome { get; set; } = "Administrador";
-    public string Sobrenome { get; set; } = "CheckFlow";
-    public string? Email { get; set; } = "admin@checkflow.local";
-    public string Senha { get; set; } = "CheckFlow@2026!";
+    public string Nome { get; set; } = string.Empty;
+    public string Sobrenome { get; set; } = string.Empty;
+    public string? Email { get; set; } = string.Empty;
+    public string Senha { get; set; } = string.Empty;
     public bool ForceChangePassword { get; set; } = false;
     public bool IsMaster { get; set; } = true;
-    public string SetorNome { get; set; } = "Admin";
+    public string SetorNome { get; set; } = string.Empty;
     public string? Ramal { get; set; } = null;
 }

@@ -1,0 +1,11 @@
+* text=auto
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.xlsx binary
+*.dll binary
+*.exe binary
+*.pdb binary

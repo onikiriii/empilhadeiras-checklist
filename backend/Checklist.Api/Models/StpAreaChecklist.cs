@@ -7,6 +7,12 @@ public class StpAreaChecklist
     public Guid SetorId { get; set; }
     public Setor Setor { get; set; } = null!;
 
+    public Guid SetorInspecionadoId { get; set; }
+    public Setor SetorInspecionado { get; set; } = null!;
+
+    public Guid? AreaInspecaoId { get; set; }
+    public StpAreaInspecao? AreaInspecao { get; set; }
+
     public Guid TemplateId { get; set; }
     public StpAreaChecklistTemplate Template { get; set; } = null!;
 

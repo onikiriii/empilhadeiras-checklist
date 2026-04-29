@@ -38,21 +38,18 @@ export default function StpChecklistsPage() {
       <div style={styles.header}>
         <div>
           <div style={styles.eyebrow}>Historico</div>
-          <h1 style={styles.title}>Inspeções de Área</h1>
+          <h1 style={styles.title}>Inspecoes de area</h1>
         </div>
-        <Link to="/stp/checklists/nova" style={styles.primaryLink}>
-        Voltar
-        </Link>
       </div>
 
       <section style={styles.filters}>
-        <Field label="Início">
+        <Field label="Inicio">
           <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} style={styles.input} />
         </Field>
         <Field label="Fim">
           <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} style={styles.input} />
         </Field>
-        <Field label="Responsável presente">
+        <Field label="Supervisor responsavel">
           <input value={responsavel} onChange={(e) => setResponsavel(e.target.value)} style={styles.input} />
         </Field>
         <div style={styles.filterActions}>
@@ -68,7 +65,7 @@ export default function StpChecklistsPage() {
         {loading ? (
           <div style={styles.emptyState}>Carregando inspecoes...</div>
         ) : checklists.length === 0 ? (
-          <div style={styles.emptyState}>Nenhuma inspeção de área encontrada.</div>
+          <div style={styles.emptyState}>Nenhuma inspecao de area encontrada.</div>
         ) : (
           <div style={styles.tableWrap}>
             <table style={styles.table}>
@@ -76,19 +73,23 @@ export default function StpChecklistsPage() {
                 <tr>
                   <th style={styles.th}>Data</th>
                   <th style={styles.th}>Template</th>
+                  <th style={styles.th}>Area inspecionada</th>
                   <th style={styles.th}>Inspetor</th>
-                  <th style={styles.th}>Responsável presente</th>
+                  <th style={styles.th}>Supervisor responsavel</th>
                   <th style={styles.th}>Resultado</th>
-                  <th style={styles.th}>Ação</th>
+                  <th style={styles.th}>Acao</th>
                 </tr>
               </thead>
               <tbody>
                 {checklists.map((item) => (
                   <tr key={item.id}>
                     <td style={styles.td}>{new Date(item.dataRealizacao).toLocaleString("pt-BR")}</td>
-                    <td style={styles.td}>{item.templateCodigo} - {item.templateNome}</td>
+                    <td style={styles.td}>
+                      {item.templateCodigo} - {item.templateNome}
+                    </td>
+                    <td style={styles.td}>{item.areaInspecaoNome}</td>
                     <td style={styles.td}>{item.inspetorNomeCompleto}</td>
-                    <td style={styles.td}>{item.responsavelPresenteNome}</td>
+                    <td style={styles.td}>{item.responsavelAreaNomeCompleto}</td>
                     <td style={styles.td}>
                       <span style={styles.badgeCheck}>{item.totalCheck} check</span>
                       <span style={styles.badgeX}>{item.totalX} X</span>
