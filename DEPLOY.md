@@ -1,17 +1,11 @@
-# Deploy Corporativo CheckFlow
+# Deploy Corporativo
 
-Este documento descreve a implantacao da aplicacao em ambiente corporativo.
+Documento de referência para implantação do CheckFlow em ambiente corporativo.
 
-## Arquitetura recomendada
-
-- frontend SPA hospedado em ambiente corporativo
-- backend ASP.NET Core hospedado em ambiente corporativo
-- banco MySQL corporativo
-
-## Topologia esperada
+## Topologia alvo
 
 ```text
-Usuario
+Usuário
   |
   v
 Frontend SPA
@@ -23,37 +17,37 @@ Checklist.Api
 MySQL corporativo
 ```
 
-## Requisitos de infraestrutura
-
-### Backend
-
-- runtime compativel com .NET 10
-- acesso ao banco MySQL corporativo
-- exposicao HTTP/HTTPS conforme padrao interno
-- armazenamento de segredos fora do repositorio
+## Componentes
 
 ### Frontend
 
-- build estatico gerado por Vite
-- publicacao do diretório `frontend/checklist-web/dist`
-- configuracao da URL da API via variavel de ambiente
+- aplicação React com build estático gerado por Vite
+- publicação do diretório `frontend/checklist-web/dist`
+- configuração de integração via `VITE_API_BASE_URL`
 
-### Banco
+### Backend
 
-- MySQL acessivel pelo backend
-- SSL habilitado quando exigido pela empresa
-- usuario de aplicacao com permissoes adequadas
+- aplicação ASP.NET Core Web API
+- runtime compatível com .NET 10
+- autenticação JWT
+- integração com banco MySQL corporativo
 
-## Configuracao obrigatoria da API
+### Banco de dados
 
-Variaveis minimas:
+- instância MySQL acessível pelo backend
+- SSL habilitado quando exigido pela política da organização
+- credencial de aplicação com permissões compatíveis com o escopo operacional
+
+## Configuração da API
+
+Variáveis mínimas:
 
 - `ConnectionStrings__Default`
 - `Auth__JwtKey`
 - `Auth__Issuer`
 - `Auth__Audience`
 
-Variaveis recomendadas:
+Variáveis recomendadas:
 
 - `Cors__AllowedOrigins`
 - `ASPNETCORE_ENVIRONMENT`
@@ -67,9 +61,9 @@ Auth__Issuer=CheckFlow.Api
 Auth__Audience=CheckFlow.Web
 ```
 
-## Configuracao do frontend
+## Configuração do frontend
 
-Variavel principal:
+Variável principal:
 
 - `VITE_API_BASE_URL`
 
@@ -79,9 +73,9 @@ Exemplo:
 VITE_API_BASE_URL=https://api.checkflow.empresa.com.br
 ```
 
-## CORS
+## Política de CORS
 
-Em producao corporativa, configure origens explicitas.
+Em produção, o backend deve operar com origens explícitas.
 
 Exemplo:
 
@@ -95,27 +89,27 @@ Exemplo:
 }
 ```
 
-## Migrations e seed
+## Banco e migrations
 
-Para ambiente corporativo, a recomendacao e:
+Diretrizes operacionais:
 
-- migrations controladas pelo processo de implantacao
-- seed inicial controlado
-- evitar dependencia de automacao no startup
+- migrations executadas de forma controlada
+- seed inicial executado de forma explícita
+- ausência de dependência de automação de startup para evolução de esquema
 
-Use como referencia:
+Arquivo de referência:
 
 - `backend/Checklist.Api/appsettings.Corporate.example.json`
 
-## Sequencia recomendada de implantacao
+## Sequência de implantação
 
-1. publicar backend
+1. publicar o backend
 2. configurar segredos e connection string
-3. validar acesso ao banco
-4. aplicar migrations de forma controlada
+3. validar conectividade com o banco
+4. aplicar migrations
 5. validar `GET /health`
-6. publicar frontend apontando para a URL final da API
-7. validar login, dashboard, checklist operacional e STP
+6. publicar o frontend com a URL final da API
+7. executar validação funcional
 
 ## Healthcheck
 
@@ -131,40 +125,43 @@ Resposta esperada:
 {"status":"ok"}
 ```
 
-## Checklist de validacao pos-deploy
+## Validação pós-implantação
 
 ### Backend
 
-- API sobe sem excecao
-- banco conecta com SSL conforme exigencia
-- endpoint `/health` responde
-- JWT esta sendo emitido corretamente
+- inicialização sem exceção
+- conexão com banco estabelecida
+- emissão de JWT funcional
+- healthcheck operacional
 
 ### Frontend
 
-- SPA carrega sem erro de roteamento
-- comunicacao com a API esta funcional
-- login administrativo funciona
-- login operacional do operador funciona
+- carregamento da SPA sem erro de roteamento
+- comunicação com a API estabelecida
+- login administrativo funcional
+- login operacional funcional
 
-### Fluxos funcionais
+### Fluxos críticos
 
-- checklist operacional envia com sucesso
-- supervisao visualiza historico
-- itens nao conformes aparecem no painel
-- STP abre areas, inspeções e documentos
-- fechamento mensal continua operacional
+- envio de checklist operacional
+- visualização de histórico em supervisão
+- processamento de não conformidades
+- inspeções STP
+- controle documental STP
+- fechamento mensal
 
-## Seguranca
+## Restrições
 
-Nao publique em producao:
+Não utilizar em produção:
 
-- segredos em `appsettings.json`
-- senhas reais no repositorio
-- connection string real no codigo
+- segredos em arquivos versionados
+- connection strings reais no código
+- senhas reais no repositório
 - CORS aberto genericamente
 
-## Documentos relacionados
+## Referências
 
-- [README principal](README.md)
-- [Guia de migracao para MySQL corporativo](docs/mysql-corporate-migration-guide.md)
+- [README.md](README.md)
+- [docs/architecture.md](docs/architecture.md)
+- [docs/api-overview.md](docs/api-overview.md)
+- [docs/mysql-corporate-migration-guide.md](docs/mysql-corporate-migration-guide.md)

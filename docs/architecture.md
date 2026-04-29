@@ -1,26 +1,35 @@
-# Architecture Overview
+# Architecture
+
+Visão estrutural do CheckFlow.
 
 ## Visão geral
 
-O sistema está organizado em três blocos principais:
+A solução está organizada em três blocos principais:
 
 1. backend ASP.NET Core
-2. frontend React + Vite
+2. frontend React
 3. banco MySQL
 
 ## Backend
 
-### Camadas principais
+### Stack
+
+- .NET 10
+- ASP.NET Core Web API
+- Entity Framework Core
+- JWT Bearer Authentication
+
+### Organização
 
 - `Controllers/`: entrada HTTP
 - `Dtos/`: contratos de entrada e saída
 - `Models/`: entidades do domínio
 - `Data/`: `AppDbContext` e configurações do EF Core
-- `Security/`: autenticação, claims e emissão de JWT
-- `Support/`: helpers e componentes auxiliares
+- `Security/`: autenticação, claims e emissão de token
+- `Support/`: componentes auxiliares
 - `Options/`: binding de configuração
 
-### Contextos principais
+### Contextos funcionais
 
 - checklist operacional
 - supervisão operacional
@@ -30,22 +39,29 @@ O sistema está organizado em três blocos principais:
 
 ## Frontend
 
-### Responsabilidades
+### Stack
 
-- login administrativo
-- login operacional
-- módulos administrativos
-- checklist operacional mobile-first
-- módulo STP
+- React 19
+- Vite
+- React Router
+- TypeScript
 
-### Estrutura principal
+### Estrutura
 
 - `src/pages/`: páginas e fluxos
 - `src/api.ts`: cliente HTTP principal
 - `src/operator-api.ts`: cliente do fluxo operacional
 - `src/types.ts`: tipos compartilhados
 
-## Banco
+### Responsabilidades
+
+- autenticação administrativa
+- autenticação operacional
+- administração de catálogos
+- checklist operacional mobile-first
+- operação STP
+
+## Banco de dados
 
 ### Entidades centrais
 
@@ -62,27 +78,36 @@ O sistema está organizado em três blocos principais:
 - `StpDocumentoEmpresa`
 - `StpDocumentoFuncionario`
 
-## Fluxos relevantes
+### Padrão de persistência
+
+- modelo relacional em MySQL
+- mapeamento via Entity Framework Core
+- migrations versionadas no repositório
+
+## Fluxos arquiteturais
 
 ### Checklist operacional
 
 1. operador autentica
-2. operador acessa equipamento
-3. sistema carrega template
-4. respostas são enviadas
-5. backend persiste checklist e itens
+2. frontend consulta equipamento e template
+3. checklist é enviado ao backend
+4. backend persiste checklist e itens
 
-### Supervisão
+### Supervisão operacional
 
-1. supervisor acessa dashboard
-2. visualiza histórico
-3. acompanha itens não conformes
-4. atribui e conclui tratativas
+1. supervisor acessa dashboard setorial
+2. backend agrega histórico e status operacionais
+3. tratativas de não conformidade são registradas e auditadas
 
 ### STP
 
-1. inspetor acessa áreas
-2. inicia inspeção por área
-3. responde checklist STP
-4. consulta histórico
-5. opera controle de documentos
+1. inspetor opera catálogo de áreas
+2. inspeções são executadas em tela operacional dedicada
+3. histórico e documentos permanecem vinculados ao domínio STP
+
+## Diretrizes
+
+- separação entre catálogo e evento operacional
+- autenticação distinta para contexto administrativo e contexto operacional
+- dependência explícita de configuração externa para segredos e conexão
+- evolução de esquema controlada por migrations
