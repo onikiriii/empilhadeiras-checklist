@@ -1,6 +1,9 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Checklist.Api.Controllers.Features.Supervisor.Checklists;
+using Checklist.Api.Controllers.Features.Supervisor.Dashboard;
+using Checklist.Api.Controllers.Features.Supervisor.NaoOk;
 using Checklist.Api.Data;
 using Checklist.Api.Models;
 using Checklist.Api.Options;
@@ -14,10 +17,16 @@ using MySql.EntityFrameworkCore.Extensions;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection("Auth"));
+builder.Services.Configure<LegacyHostingCompatibilityOptions>(
+    builder.Configuration.GetSection(LegacyHostingCompatibilityOptions.SectionName));
 
 var authOptions = builder.Configuration.GetSection("Auth").Get<AuthOptions>() ?? new AuthOptions();
 if (string.IsNullOrWhiteSpace(authOptions.JwtKey))
     throw new InvalidOperationException("Auth:JwtKey precisa estar configurado.");
+
+var compatibilityOptions =
+    builder.Configuration.GetSection(LegacyHostingCompatibilityOptions.SectionName).Get<LegacyHostingCompatibilityOptions>()
+    ?? new LegacyHostingCompatibilityOptions();
 
 builder.Services
     .AddControllers()
@@ -33,7 +42,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("frontend", policy =>
     {
-        var configuredOrigins = ResolveAllowedOrigins(builder.Configuration);
+        var configuredOrigins = FrontendCorsPolicyHelper.ResolveAllowedOrigins(builder.Configuration);
 
         if (builder.Environment.IsDevelopment())
         {
@@ -47,7 +56,7 @@ builder.Services.AddCors(options =>
         }
         else
         {
-            policy.SetIsOriginAllowed(origin => IsAllowedFrontendOrigin(origin, configuredOrigins))
+            policy.SetIsOriginAllowed(origin => FrontendCorsPolicyHelper.IsAllowedFrontendOrigin(origin, configuredOrigins, compatibilityOptions))
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -55,21 +64,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-var connectionString = ResolveConnectionString(builder.Configuration);
+var connectionString = LegacyHostingConnectionStringResolver.Resolve(builder.Configuration, compatibilityOptions);
 
 if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException("ConnectionStrings:Default precisa estar configurado para o MySQL.");
-
-if (connectionString.StartsWith("mysql://", StringComparison.OrdinalIgnoreCase))
-{
-    var uri = new Uri(connectionString);
-    var userInfo = uri.UserInfo.Split(':');
-    var database = uri.AbsolutePath.Trim('/');
-    var portNumber = uri.IsDefaultPort ? 3306 : uri.Port;
-
-    connectionString =
-        $"Server={uri.Host};Port={portNumber};Database={database};User ID={Uri.UnescapeDataString(userInfo[0])};Password={Uri.UnescapeDataString(userInfo[1])};SslMode=Disabled;AllowPublicKeyRetrieval=True;";
-}
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseMySQL(connectionString));
 builder.Services.AddSingleton<PasswordHashingService>();
@@ -80,6 +78,10 @@ builder.Services.AddScoped<ChecklistStandardCatalogService>();
 builder.Services.AddScoped<StpAreaTemplateCatalogService>();
 builder.Services.AddScoped<BootstrapDataSeeder>();
 builder.Services.AddScoped<ChecklistMonthlyClosingService>();
+builder.Services.AddScoped<SupervisorDashboardQueryService>();
+builder.Services.AddScoped<SupervisorChecklistQueryService>();
+builder.Services.AddScoped<SupervisorNaoOkQueryService>();
+builder.Services.AddScoped<SupervisorNaoOkWorkflowService>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -143,6 +145,23 @@ builder.Services.AddAuthorization(options =>
             !CurrentSupervisorClaims.GetForceChangePassword(context.User) &&
             CurrentSupervisorClaims.GetIsMaster(context.User));
     });
+
+    options.AddPolicy("OperatorAuthenticated", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+            CurrentOperadorClaims.GetOperadorId(context.User).HasValue &&
+            CurrentOperadorClaims.GetSetorId(context.User).HasValue);
+    });
+
+    options.AddPolicy("OperatorChecklistReady", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireAssertion(context =>
+            CurrentOperadorClaims.GetOperadorId(context.User).HasValue &&
+            CurrentOperadorClaims.GetSetorId(context.User).HasValue &&
+            !CurrentOperadorClaims.GetForceChangePassword(context.User));
+    });
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -166,10 +185,14 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    if (compatibilityOptions.ApplyMigrationsOnStartup)
+        db.Database.Migrate();
 
-    var bootstrapDataSeeder = scope.ServiceProvider.GetRequiredService<BootstrapDataSeeder>();
-    await bootstrapDataSeeder.SeedAsync();
+    if (compatibilityOptions.SeedOnStartup)
+    {
+        var bootstrapDataSeeder = scope.ServiceProvider.GetRequiredService<BootstrapDataSeeder>();
+        await bootstrapDataSeeder.SeedAsync();
+    }
 }
 
 if (app.Environment.IsDevelopment())
@@ -190,58 +213,3 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapControllers();
 
 app.Run();
-
-static string? ResolveConnectionString(IConfiguration configuration)
-{
-    var directConnectionString = configuration.GetConnectionString("Default")
-        ?? configuration.GetConnectionString("DefaultConnection")
-        ?? configuration.GetConnectionString("AppDbConnectionString")
-        ?? Environment.GetEnvironmentVariable("MYSQL_URL")
-        ?? Environment.GetEnvironmentVariable("DATABASE_URL")
-        ?? Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
-
-    if (!string.IsNullOrWhiteSpace(directConnectionString))
-        return directConnectionString;
-
-    var host = Environment.GetEnvironmentVariable("MYSQLHOST") ?? configuration["MYSQLHOST"];
-    var database = Environment.GetEnvironmentVariable("MYSQLDATABASE") ?? configuration["MYSQLDATABASE"];
-    var user = Environment.GetEnvironmentVariable("MYSQLUSER") ?? configuration["MYSQLUSER"];
-    var password = Environment.GetEnvironmentVariable("MYSQLPASSWORD") ?? configuration["MYSQLPASSWORD"];
-    var port = Environment.GetEnvironmentVariable("MYSQLPORT") ?? configuration["MYSQLPORT"] ?? "3306";
-
-    if (string.IsNullOrWhiteSpace(host) ||
-        string.IsNullOrWhiteSpace(database) ||
-        string.IsNullOrWhiteSpace(user) ||
-        string.IsNullOrWhiteSpace(password))
-    {
-        return null;
-    }
-
-    return $"Server={host};Port={port};Database={database};User ID={user};Password={password};SslMode=Disabled;AllowPublicKeyRetrieval=True;";
-}
-
-static string[] ResolveAllowedOrigins(IConfiguration configuration)
-{
-    var configOrigins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-    var envOrigins = (Environment.GetEnvironmentVariable("CORS_ALLOWED_ORIGINS") ?? string.Empty)
-        .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-    var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL");
-
-    return configOrigins
-        .Concat(envOrigins)
-        .Concat(string.IsNullOrWhiteSpace(frontendUrl) ? [] : [frontendUrl])
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .ToArray();
-}
-
-static bool IsAllowedFrontendOrigin(string origin, string[] configuredOrigins)
-{
-    if (configuredOrigins.Any(x => string.Equals(x, origin, StringComparison.OrdinalIgnoreCase)))
-        return true;
-
-    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
-        return false;
-
-    return uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase) ||
-           uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase);
-}

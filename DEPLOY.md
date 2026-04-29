@@ -1,54 +1,170 @@
-# Deploy CheckFlow
+# Deploy Corporativo CheckFlow
+
+Este documento descreve a implantacao da aplicacao em ambiente corporativo.
 
 ## Arquitetura recomendada
 
-- Frontend SPA no Vercel
-- Backend ASP.NET Core no Railway
-- Banco MySQL no Railway ou MySQL Server corporativo
+- frontend SPA hospedado em ambiente corporativo
+- backend ASP.NET Core hospedado em ambiente corporativo
+- banco MySQL corporativo
 
-## Vercel
+## Topologia esperada
 
-Projeto:
-- Root Directory: `frontend/checklist-web`
-- Framework Preset: `Vite`
+```text
+Usuario
+  |
+  v
+Frontend SPA
+  |
+  v
+Checklist.Api
+  |
+  v
+MySQL corporativo
+```
 
-Build:
-- Install Command: `npm install`
-- Build Command: `npm run build`
-- Output Directory: `dist`
+## Requisitos de infraestrutura
 
-Variáveis:
-- `VITE_API_BASE_URL=https://SEU-BACKEND.up.railway.app`
+### Backend
 
-Observações:
-- O arquivo [vercel.json](/c:/Users/Gabriel/Documents/empilhadeiras-checklist/frontend/checklist-web/vercel.json) já mantém o rewrite da SPA para `index.html`
-- Se usar domínio customizado no frontend, cadastre a URL no backend via `FRONTEND_URL` ou `CORS_ALLOWED_ORIGINS`
+- runtime compativel com .NET 10
+- acesso ao banco MySQL corporativo
+- exposicao HTTP/HTTPS conforme padrao interno
+- armazenamento de segredos fora do repositorio
 
-## Railway
+### Frontend
 
-Projeto:
-- Deploy a partir da raiz do repositório
-- O Railway vai usar [railway.json](/c:/Users/Gabriel/Documents/empilhadeiras-checklist/railway.json) e [Dockerfile.railway](/c:/Users/Gabriel/Documents/empilhadeiras-checklist/Dockerfile.railway)
+- build estatico gerado por Vite
+- publicacao do diretório `frontend/checklist-web/dist`
+- configuracao da URL da API via variavel de ambiente
 
-Variáveis obrigatórias da API:
+### Banco
+
+- MySQL acessivel pelo backend
+- SSL habilitado quando exigido pela empresa
+- usuario de aplicacao com permissoes adequadas
+
+## Configuracao obrigatoria da API
+
+Variaveis minimas:
+
+- `ConnectionStrings__Default`
 - `Auth__JwtKey`
-- `Auth__Issuer=CheckFlow.Api`
-- `Auth__Audience=CheckFlow.Web`
-- `FRONTEND_URL=https://SEU-FRONTEND.vercel.app`
+- `Auth__Issuer`
+- `Auth__Audience`
 
-Banco:
-- opção 1: referenciar a URL MySQL em `ConnectionStrings__Default`
-- opção 2: usar `MYSQLHOST`, `MYSQLPORT`, `MYSQLDATABASE`, `MYSQLUSER`, `MYSQLPASSWORD`
+Variaveis recomendadas:
 
-Observações:
-- O container Railway instala LibreOffice para a geração do PDF mensal
-- O backend expõe `GET /health` para healthcheck do Railway
-- O backend aplica `migrations` automaticamente ao subir
+- `Cors__AllowedOrigins`
+- `ASPNETCORE_ENVIRONMENT`
 
-## Sequência recomendada
+Exemplo:
 
-1. Suba o backend no Railway
-2. Configure as variáveis da API
-3. Confirme `GET /health`
-4. Suba o frontend no Vercel apontando `VITE_API_BASE_URL` para o Railway
-5. Atualize `FRONTEND_URL` no Railway com a URL final do Vercel
+```env
+ConnectionStrings__Default=Server=HOST;Port=3306;Database=CHECKFLOW;User ID=USUARIO;Password=SENHA;SslMode=Required;
+Auth__JwtKey=CHAVE_FORTE_DA_APLICACAO
+Auth__Issuer=CheckFlow.Api
+Auth__Audience=CheckFlow.Web
+```
+
+## Configuracao do frontend
+
+Variavel principal:
+
+- `VITE_API_BASE_URL`
+
+Exemplo:
+
+```env
+VITE_API_BASE_URL=https://api.checkflow.empresa.com.br
+```
+
+## CORS
+
+Em producao corporativa, configure origens explicitas.
+
+Exemplo:
+
+```json
+{
+  "Cors": {
+    "AllowedOrigins": [
+      "https://checkflow.empresa.com.br"
+    ]
+  }
+}
+```
+
+## Migrations e seed
+
+Para ambiente corporativo, a recomendacao e:
+
+- migrations controladas pelo processo de implantacao
+- seed inicial controlado
+- evitar dependencia de automacao no startup
+
+Use como referencia:
+
+- `backend/Checklist.Api/appsettings.Corporate.example.json`
+
+## Sequencia recomendada de implantacao
+
+1. publicar backend
+2. configurar segredos e connection string
+3. validar acesso ao banco
+4. aplicar migrations de forma controlada
+5. validar `GET /health`
+6. publicar frontend apontando para a URL final da API
+7. validar login, dashboard, checklist operacional e STP
+
+## Healthcheck
+
+Endpoint:
+
+```text
+GET /health
+```
+
+Resposta esperada:
+
+```json
+{"status":"ok"}
+```
+
+## Checklist de validacao pos-deploy
+
+### Backend
+
+- API sobe sem excecao
+- banco conecta com SSL conforme exigencia
+- endpoint `/health` responde
+- JWT esta sendo emitido corretamente
+
+### Frontend
+
+- SPA carrega sem erro de roteamento
+- comunicacao com a API esta funcional
+- login administrativo funciona
+- login operacional do operador funciona
+
+### Fluxos funcionais
+
+- checklist operacional envia com sucesso
+- supervisao visualiza historico
+- itens nao conformes aparecem no painel
+- STP abre areas, inspeções e documentos
+- fechamento mensal continua operacional
+
+## Seguranca
+
+Nao publique em producao:
+
+- segredos em `appsettings.json`
+- senhas reais no repositorio
+- connection string real no codigo
+- CORS aberto genericamente
+
+## Documentos relacionados
+
+- [README principal](README.md)
+- [Guia de migracao para MySQL corporativo](docs/mysql-corporate-migration-guide.md)

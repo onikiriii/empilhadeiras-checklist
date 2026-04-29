@@ -78,6 +78,9 @@ public class StpController : ControllerBase
             .AsNoTracking()
             .Include(x => x.Template)
             .Include(x => x.InspetorSupervisor)
+            .Include(x => x.AreaInspecao)
+                .ThenInclude(x => x!.ResponsavelSupervisor)
+            .Include(x => x.SetorInspecionado)
             .Include(x => x.Itens)
             .Where(x => x.SetorId == setorId.Value)
             .AsQueryable();
@@ -111,8 +114,12 @@ public class StpController : ControllerBase
                 x.Template.Nome,
                 x.DataRealizacao,
                 x.InspetorSupervisor.Nome + " " + x.InspetorSupervisor.Sobrenome,
-                x.ResponsavelPresenteNome,
-                x.ResponsavelPresenteCargo,
+                x.AreaInspecaoId,
+                x.AreaInspecao != null ? x.AreaInspecao.Nome : x.SetorInspecionado.Nome,
+                x.AreaInspecao != null ? x.AreaInspecao.ResponsavelSupervisorId : null,
+                x.AreaInspecao != null
+                    ? x.AreaInspecao.ResponsavelSupervisor.Nome + " " + x.AreaInspecao.ResponsavelSupervisor.Sobrenome
+                    : x.ResponsavelPresenteNome,
                 x.Itens.Count,
                 x.Itens.Count(i => i.Resultado == StpAreaChecklistResultado.Check),
                 x.Itens.Count(i => i.Resultado == StpAreaChecklistResultado.X)
@@ -133,6 +140,9 @@ public class StpController : ControllerBase
             .AsNoTracking()
             .Include(x => x.Template)
             .Include(x => x.InspetorSupervisor)
+            .Include(x => x.AreaInspecao)
+                .ThenInclude(x => x!.ResponsavelSupervisor)
+            .Include(x => x.SetorInspecionado)
             .Include(x => x.Itens)
             .FirstOrDefaultAsync(x => x.Id == id && x.SetorId == setorId.Value);
 
@@ -154,15 +164,22 @@ public class StpController : ControllerBase
         if (request.TemplateId == Guid.Empty)
             return BadRequest(new { message = "TemplateId e obrigatorio." });
 
+        if (request.AreaInspecaoId == Guid.Empty)
+            return BadRequest(new { message = "A área de inspeção é obrigatória." });
+
         if (request.Itens is null || request.Itens.Count == 0)
             return BadRequest(new { message = "A inspecao STP precisa ter itens preenchidos." });
 
-        var responsavelPresenteNome = NormalizeOptionalText(request.ResponsavelPresenteNome);
-        if (responsavelPresenteNome is null)
-            return BadRequest(new { message = "O nome do responsavel presente e obrigatorio." });
-
         if (!IsValidSignaturePayload(request.AssinaturaInspetorBase64) || !IsValidSignaturePayload(request.AssinaturaResponsavelPresenteBase64))
             return BadRequest(new { message = "As duas assinaturas sao obrigatorias e precisam estar em formato valido." });
+
+        var areaInspecao = await _db.StpAreasInspecao
+            .AsNoTracking()
+            .Include(x => x.ResponsavelSupervisor)
+            .FirstOrDefaultAsync(x => x.Id == request.AreaInspecaoId && x.SetorId == setorId.Value && x.Ativa);
+
+        if (areaInspecao is null)
+            return BadRequest(new { message = "A área de inspeção informada é inválida, inativa ou fora do setor." });
 
         var template = await _db.StpAreaChecklistTemplates
             .Include(x => x.Itens)
@@ -197,10 +214,12 @@ public class StpController : ControllerBase
         var checklist = new StpAreaChecklist
         {
             SetorId = setorId.Value,
+            SetorInspecionadoId = areaInspecao.SetorId,
+            AreaInspecaoId = areaInspecao.Id,
             TemplateId = template.Id,
             InspetorSupervisorId = supervisorId.Value,
-            ResponsavelPresenteNome = responsavelPresenteNome,
-            ResponsavelPresenteCargo = NormalizeOptionalText(request.ResponsavelPresenteCargo),
+            ResponsavelPresenteNome = areaInspecao.ResponsavelSupervisor.Nome + " " + areaInspecao.ResponsavelSupervisor.Sobrenome,
+            ResponsavelPresenteCargo = "Supervisor responsável",
             ComportamentosPreventivosObservados = NormalizeOptionalText(request.ComportamentosPreventivosObservados),
             AtosInsegurosObservados = NormalizeOptionalText(request.AtosInsegurosObservados),
             CondicoesInsegurasConstatadas = NormalizeOptionalText(request.CondicoesInsegurasConstatadas),
@@ -233,6 +252,9 @@ public class StpController : ControllerBase
             .AsNoTracking()
             .Include(x => x.Template)
             .Include(x => x.InspetorSupervisor)
+            .Include(x => x.AreaInspecao)
+                .ThenInclude(x => x!.ResponsavelSupervisor)
+            .Include(x => x.SetorInspecionado)
             .Include(x => x.Itens)
             .FirstAsync(x => x.Id == checklist.Id);
 
@@ -266,6 +288,8 @@ public class StpController : ControllerBase
         return new StpAreaChecklistDetailDto(
             checklist.Id,
             checklist.SetorId,
+            checklist.AreaInspecaoId,
+            checklist.AreaInspecao != null ? checklist.AreaInspecao.Nome : checklist.SetorInspecionado.Nome,
             checklist.TemplateId,
             checklist.Template.Codigo,
             checklist.Template.Nome,
@@ -273,8 +297,10 @@ public class StpController : ControllerBase
             checklist.DataReferencia,
             checklist.InspetorSupervisorId,
             checklist.InspetorSupervisor.Nome + " " + checklist.InspetorSupervisor.Sobrenome,
-            checklist.ResponsavelPresenteNome,
-            checklist.ResponsavelPresenteCargo,
+            checklist.AreaInspecao?.ResponsavelSupervisorId,
+            checklist.AreaInspecao != null
+                ? checklist.AreaInspecao.ResponsavelSupervisor.Nome + " " + checklist.AreaInspecao.ResponsavelSupervisor.Sobrenome
+                : checklist.ResponsavelPresenteNome,
             checklist.ComportamentosPreventivosObservados,
             checklist.AtosInsegurosObservados,
             checklist.CondicoesInsegurasConstatadas,

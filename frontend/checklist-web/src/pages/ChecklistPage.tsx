@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApiError, api } from "../api";
+import { operatorApi } from "../operator-api";
+import { useOperatorAuth } from "../operator-auth";
 import "../styles/global.css";
 import type {
   ChecklistDto,
@@ -19,24 +21,15 @@ type ItemForm = {
   imagemNokMimeType?: string;
 };
 
-type OperadorSugestao = {
-  id: string;
-  nome: string;
-  matricula: string;
-};
-
 export function ChecklistPage() {
   const { qrId } = useParams();
   const navigate = useNavigate();
+  const { session: operatorSession, logout: logoutOperator } = useOperatorAuth();
 
   const [loading, setLoading] = useState(true);
   const [equipamento, setEquipamento] = useState<EquipamentoDto | null>(null);
   const [templates, setTemplates] = useState<ChecklistItemTemplateDto[]>([]);
   const [itens, setItens] = useState<Record<string, ItemForm>>({});
-  const [operadorId, setOperadorId] = useState("");
-  const [operadorQuery, setOperadorQuery] = useState("");
-  const [sugestoesOperador, setSugestoesOperador] = useState<OperadorSugestao[]>([]);
-  const [loadingOperador, setLoadingOperador] = useState(false);
   const [obsGerais, setObsGerais] = useState("");
   const [signatureStepOpen, setSignatureStepOpen] = useState(false);
   const [assinaturaBase64, setAssinaturaBase64] = useState("");
@@ -44,6 +37,7 @@ export function ChecklistPage() {
   const [error, setError] = useState<string | null>(null);
 
   const signatureRef = useRef<SignatureCanvas | null>(null);
+  const operador = operatorSession?.operador ?? null;
 
   const allAnswered = useMemo(() => {
     if (templates.length === 0) return false;
@@ -53,8 +47,7 @@ export function ChecklistPage() {
     });
   }, [itens, templates]);
 
-  const hasOperatorSearch = operadorQuery.trim().length >= 2 && !operadorId;
-  const canOpenSignature = !!operadorId && allAnswered;
+  const canOpenSignature = !!operador && allAnswered;
 
   useEffect(() => {
     let mounted = true;
@@ -99,54 +92,6 @@ export function ChecklistPage() {
       mounted = false;
     };
   }, [qrId]);
-
-  useEffect(() => {
-    const query = operadorQuery.trim();
-    let active = true;
-
-    if (operadorId) {
-      setSugestoesOperador([]);
-      setLoadingOperador(false);
-      return () => {
-        active = false;
-      };
-    }
-
-    if (query.length < 2) {
-      setSugestoesOperador([]);
-      setLoadingOperador(false);
-      return () => {
-        active = false;
-      };
-    }
-
-    const handle = window.setTimeout(async () => {
-      try {
-        if (!active) return;
-        setLoadingOperador(true);
-
-        const data = await api.get<OperadorSugestao[]>(
-          `/api/operadores/busca?query=${encodeURIComponent(query)}&take=10${
-            equipamento ? `&setorId=${equipamento.setorId}` : ""
-          }`
-        );
-
-        if (!active) return;
-        setSugestoesOperador(data);
-      } catch {
-        if (!active) return;
-        setSugestoesOperador([]);
-      } finally {
-        if (!active) return;
-        setLoadingOperador(false);
-      }
-    }, 220);
-
-    return () => {
-      active = false;
-      window.clearTimeout(handle);
-    };
-  }, [equipamento, operadorId, operadorQuery]);
 
   useEffect(() => {
     if (canOpenSignature) return;
@@ -243,8 +188,8 @@ export function ChecklistPage() {
   }
 
   function abrirAssinatura() {
-    if (!operadorId) {
-      setError("Selecione um operador antes de assinar.");
+    if (!operador) {
+      setError("Operador autenticado nao encontrado.");
       return;
     }
 
@@ -259,15 +204,10 @@ export function ChecklistPage() {
   }
 
   async function submit() {
-    if (!equipamento) return;
+    if (!equipamento || !operador) return;
 
     setError(null);
     setResult(null);
-
-    if (!operadorId) {
-      setError("Selecione um operador antes de enviar.");
-      return;
-    }
 
     if (!allAnswered) {
       setError("Responda todos os itens antes de enviar.");
@@ -292,7 +232,7 @@ export function ChecklistPage() {
 
     const payload = {
       equipamentoId: equipamento.id,
-      operadorId: operadorId.trim(),
+      operadorId: operador.id,
       itens: templates.map((template) => ({
         templateId: template.id,
         status: itens[template.id].status,
@@ -306,7 +246,7 @@ export function ChecklistPage() {
     };
 
     try {
-      const created = await api.post<ChecklistDto>("/api/checklists", payload);
+      const created = await operatorApi.post<ChecklistDto>("/api/checklists", payload);
       setResult(created);
 
       window.setTimeout(() => {
@@ -341,7 +281,7 @@ export function ChecklistPage() {
     return (
       <div className="cf-mobile-page">
         <div className="cf-checklist-shell">
-          <div className="cf-alert cf-alert-error">Equipamento não encontrado.</div>
+          <div className="cf-alert cf-alert-error">Equipamento nao encontrado.</div>
         </div>
       </div>
     );
@@ -402,7 +342,7 @@ export function ChecklistPage() {
 
           <div className="cf-checklist-equipment-grid">
             <div className="cf-checklist-equipment-card">
-              <span className="cf-checklist-equipment-label">Código</span>
+              <span className="cf-checklist-equipment-label">Codigo</span>
               <strong className="cf-checklist-equipment-value">{equipamento.codigo}</strong>
             </div>
             <div className="cf-checklist-equipment-card">
@@ -410,7 +350,7 @@ export function ChecklistPage() {
               <strong className="cf-checklist-equipment-value">{equipamento.categoriaNome}</strong>
             </div>
             <div className="cf-checklist-equipment-card cf-checklist-equipment-card-wide">
-              <span className="cf-checklist-equipment-label">Descrição</span>
+              <span className="cf-checklist-equipment-label">Descricao</span>
               <strong className="cf-checklist-equipment-value">{equipamento.descricao}</strong>
             </div>
             <div className="cf-checklist-equipment-card cf-checklist-equipment-card-wide">
@@ -428,70 +368,35 @@ export function ChecklistPage() {
 
                 <div className="cf-checklist-section-copy">
                   <h2 className="cf-checklist-hero-panel-title">Operador</h2>
-                  <p className="cf-checklist-hero-panel-text">Selecione o responsável pela execução.</p>
+                  <p className="cf-checklist-hero-panel-text">Checklist vinculado ao operador autenticado na sessao operacional.</p>
                 </div>
               </div>
 
               <div>
-                <label className="cf-field-label cf-checklist-hero-label">Nome ou matrícula</label>
-                <input
-                  value={operadorQuery}
-                  onChange={(e) => {
-                    invalidateSignature();
-                    setOperadorQuery(e.target.value);
-                    setOperadorId("");
-                  }}
-                  placeholder="Digite para buscar"
-                  autoComplete="off"
-                  className={`cf-mobile-input cf-checklist-hero-input ${operadorId ? "selected" : ""}`}
-                />
+                <label className="cf-field-label cf-checklist-hero-label">Operador autenticado</label>
+                <div
+                  className="cf-mobile-input cf-checklist-hero-input selected"
+                  style={{ display: "grid", gap: 4, minHeight: "auto", padding: "14px 16px" }}
+                >
+                  <strong>{operador?.nome}</strong>
+                  <span style={{ fontSize: 13, color: "#667085" }}>
+                    {operador?.matricula} · {operador?.setorNome}
+                  </span>
+                </div>
 
-                {operadorId ? (
-                  <div className="cf-checklist-inline-row">
-                    <span className="cf-checklist-selection-ok">Operador selecionado</span>
-                    <button
-                      type="button"
-                      className="cf-mobile-inline-link cf-checklist-hero-link"
-                      onClick={() => {
-                        invalidateSignature();
-                        setOperadorId("");
-                        setOperadorQuery("");
-                        setSugestoesOperador([]);
-                      }}
-                    >
-                      Trocar operador
-                    </button>
-                  </div>
-                ) : null}
-
-                {hasOperatorSearch && loadingOperador ? (
-                  <div className="cf-mobile-helper cf-checklist-hero-helper">Buscando operadores...</div>
-                ) : null}
-
-                {hasOperatorSearch && !loadingOperador && sugestoesOperador.length > 0 ? (
-                  <div className="cf-checklist-suggestions">
-                    {sugestoesOperador.map((operador) => (
-                      <button
-                        key={operador.id}
-                        type="button"
-                        className="cf-checklist-suggestion"
-                        onClick={() => {
-                          invalidateSignature();
-                          setOperadorId(operador.id);
-                          setOperadorQuery(`${operador.nome} (${operador.matricula})`);
-                          setSugestoesOperador([]);
-                        }}
-                      >
-                        <strong>{operador.nome}</strong>
-                        <span>{operador.matricula}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-
-                {hasOperatorSearch && !loadingOperador && sugestoesOperador.length === 0 ? (
-                  <div className="cf-mobile-helper cf-checklist-hero-helper">Nenhum operador encontrado.</div>
-                ) : null}
+                <div className="cf-checklist-inline-row">
+                  <span className="cf-checklist-selection-ok">Sessao validada</span>
+                  <button
+                    type="button"
+                    className="cf-mobile-inline-link cf-checklist-hero-link"
+                    onClick={() => {
+                      logoutOperator();
+                      navigate("/operador/login", { replace: true });
+                    }}
+                  >
+                    Trocar operador
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -502,13 +407,13 @@ export function ChecklistPage() {
                 </div>
 
                 <div className="cf-checklist-section-copy">
-                  <h2 className="cf-checklist-hero-panel-title">Observações gerais</h2>
+                  <h2 className="cf-checklist-hero-panel-title">Observacoes gerais</h2>
                   <p className="cf-checklist-hero-panel-text">Registre detalhes adicionais antes da assinatura.</p>
                 </div>
               </div>
 
               <div>
-                <label className="cf-field-label cf-checklist-hero-label">Observações</label>
+                <label className="cf-field-label cf-checklist-hero-label">Observacoes</label>
                 <textarea
                   rows={4}
                   value={obsGerais}
@@ -516,7 +421,7 @@ export function ChecklistPage() {
                     invalidateSignature();
                     setObsGerais(e.target.value);
                   }}
-                  placeholder="Digite observações adicionais"
+                  placeholder="Digite observacoes adicionais"
                   className="cf-mobile-textarea cf-checklist-hero-input cf-checklist-hero-textarea"
                 />
               </div>
@@ -635,18 +540,6 @@ export function ChecklistPage() {
                         </div>
                       </div>
                     ) : null}
-
-                    {false && current === "NOK" ? (
-                      <div className="cf-checklist-item-note">
-                        <label className="cf-field-label">Observação do item</label>
-                        <input
-                          value={itens[template.id]?.observacao ?? ""}
-                          onChange={(e) => setObs(template.id, e.target.value)}
-                          placeholder="Descreva a não conformidade"
-                          className="cf-mobile-input"
-                        />
-                      </div>
-                    ) : null}
                   </article>
                 );
               })}
@@ -700,7 +593,7 @@ export function ChecklistPage() {
               </div>
 
               {!assinaturaBase64 ? (
-                <div className="cf-checklist-signature-note">Faça a assinatura para liberar o envio.</div>
+                <div className="cf-checklist-signature-note">Faca a assinatura para liberar o envio.</div>
               ) : null}
 
               <div className="cf-checklist-signature-actions">
@@ -778,30 +671,11 @@ function QrIcon() {
   );
 }
 
-function UserIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="8" r="3.5" stroke="#0057B8" strokeWidth="2" />
-      <path d="M5 19C6.3 16.7 8.73 15.5 12 15.5C15.27 15.5 17.7 16.7 19 19" stroke="#0057B8" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function UserIconLight() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="8" r="3.5" stroke="white" strokeWidth="2" />
       <path d="M5 19C6.3 16.7 8.73 15.5 12 15.5C15.27 15.5 17.7 16.7 19 19" stroke="white" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function NotesIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="5" y="4" width="14" height="16" rx="2" stroke="#0057B8" strokeWidth="2" />
-      <path d="M9 9H15" stroke="#0057B8" strokeWidth="2" strokeLinecap="round" />
-      <path d="M9 13H15" stroke="#0057B8" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }

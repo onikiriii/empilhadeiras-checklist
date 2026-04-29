@@ -268,7 +268,7 @@ export default function FechamentosMensaisPage() {
                 )
               }
             >
-              Baixar planilha oficial
+              Baixar planilha
             </button>
           ) : null}
         </div>

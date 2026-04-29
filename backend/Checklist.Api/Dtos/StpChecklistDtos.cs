@@ -29,6 +29,31 @@ public record StpAreaChecklistTemplateDetailDto(
     IReadOnlyList<StpAreaChecklistTemplateItemDto> Itens
 );
 
+public record StpAreaChecklistSelectableSetorDto(
+    Guid Id,
+    string Nome
+);
+
+public record StpAreaResponsavelSupervisorDto(
+    Guid Id,
+    string NomeCompleto
+);
+
+public record StpAreaInspecaoDto(
+    Guid Id,
+    Guid SetorId,
+    string Nome,
+    Guid ResponsavelSupervisorId,
+    string ResponsavelSupervisorNomeCompleto,
+    bool Ativa
+);
+
+public record CriarOuAtualizarStpAreaInspecaoRequest(
+    [Required] string Nome,
+    [Required] Guid ResponsavelSupervisorId,
+    bool Ativa = true
+);
+
 public record EnviarStpAreaChecklistItemRequest(
     [Required] Guid TemplateItemId,
     [Required] StpAreaChecklistResultado Resultado,
@@ -37,8 +62,7 @@ public record EnviarStpAreaChecklistItemRequest(
 
 public record EnviarStpAreaChecklistRequest(
     [Required] Guid TemplateId,
-    [Required] string ResponsavelPresenteNome,
-    string? ResponsavelPresenteCargo,
+    [Required] Guid AreaInspecaoId,
     string? ComportamentosPreventivosObservados,
     string? AtosInsegurosObservados,
     string? CondicoesInsegurasConstatadas,
@@ -64,8 +88,10 @@ public record StpAreaChecklistListItemDto(
     string TemplateNome,
     DateTime DataRealizacao,
     string InspetorNomeCompleto,
-    string ResponsavelPresenteNome,
-    string? ResponsavelPresenteCargo,
+    Guid? AreaInspecaoId,
+    string AreaInspecaoNome,
+    Guid? ResponsavelAreaSupervisorId,
+    string ResponsavelAreaNomeCompleto,
     int TotalItens,
     int TotalCheck,
     int TotalX
@@ -74,6 +100,8 @@ public record StpAreaChecklistListItemDto(
 public record StpAreaChecklistDetailDto(
     Guid Id,
     Guid SetorId,
+    Guid? AreaInspecaoId,
+    string AreaInspecaoNome,
     Guid TemplateId,
     string TemplateCodigo,
     string TemplateNome,
@@ -81,8 +109,8 @@ public record StpAreaChecklistDetailDto(
     DateTime DataReferencia,
     Guid InspetorSupervisorId,
     string InspetorNomeCompleto,
-    string ResponsavelPresenteNome,
-    string? ResponsavelPresenteCargo,
+    Guid? ResponsavelAreaSupervisorId,
+    string ResponsavelAreaNomeCompleto,
     string? ComportamentosPreventivosObservados,
     string? AtosInsegurosObservados,
     string? CondicoesInsegurasConstatadas,

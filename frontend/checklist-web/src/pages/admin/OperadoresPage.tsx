@@ -5,6 +5,8 @@ type Operador = {
   id: string;
   nome: string;
   matricula: string;
+  login: string;
+  forceChangePassword: boolean;
   ativo: boolean;
 };
 
@@ -14,10 +16,18 @@ export default function OperadoresPage() {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ nome: "", matricula: "", ativo: true });
+  const [form, setForm] = useState({
+    nome: "",
+    matricula: "",
+    login: "",
+    senha: "",
+    confirmaSenha: "",
+    forceChangePassword: true,
+    ativo: true,
+  });
 
   useEffect(() => {
-    loadOperadores();
+    void loadOperadores();
   }, []);
 
   async function loadOperadores() {
@@ -43,10 +53,8 @@ export default function OperadoresPage() {
         await api.post("/api/operadores", form);
       }
 
-      setShowForm(false);
-      setEditingId(null);
-      setForm({ nome: "", matricula: "", ativo: true });
-      loadOperadores();
+      resetForm();
+      await loadOperadores();
     } catch (e: any) {
       setError(e.message ?? "Erro ao salvar operador");
     }
@@ -56,6 +64,10 @@ export default function OperadoresPage() {
     setForm({
       nome: operador.nome,
       matricula: operador.matricula,
+      login: operador.login,
+      senha: "",
+      confirmaSenha: "",
+      forceChangePassword: operador.forceChangePassword,
       ativo: operador.ativo,
     });
     setEditingId(operador.id);
@@ -69,12 +81,28 @@ export default function OperadoresPage() {
     try {
       await api.put(`/api/operadores/${operador.id}`, {
         nome: operador.nome,
+        login: operador.login,
         ativo: proximoStatus,
+        forceChangePassword: operador.forceChangePassword,
       });
-      loadOperadores();
+      await loadOperadores();
     } catch (e: any) {
       setError(e.message ?? "Erro ao atualizar status do operador");
     }
+  }
+
+  function resetForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm({
+      nome: "",
+      matricula: "",
+      login: "",
+      senha: "",
+      confirmaSenha: "",
+      forceChangePassword: true,
+      ativo: true,
+    });
   }
 
   return (
@@ -83,9 +111,13 @@ export default function OperadoresPage() {
         <h1 style={styles.title}>Operadores</h1>
         <button
           onClick={() => {
-            setShowForm(!showForm);
+            if (showForm) {
+              resetForm();
+              return;
+            }
+
+            setShowForm(true);
             setEditingId(null);
-            setForm({ nome: "", matricula: "", ativo: true });
           }}
           style={styles.primaryButton}
         >
@@ -98,7 +130,7 @@ export default function OperadoresPage() {
       <div style={styles.contentGrid}>
         {showForm ? (
           <div style={styles.formCard}>
-            <h2 style={styles.cardTitle}>{editingId ? "Editar" : "Novo operador"}</h2>
+            <h2 style={styles.cardTitle}>{editingId ? "Editar operador" : "Novo operador"}</h2>
 
             <form onSubmit={handleSubmit} style={styles.formGrid}>
               <div>
@@ -108,8 +140,33 @@ export default function OperadoresPage() {
 
               <div>
                 <label style={styles.label}>Matrícula</label>
-                <input value={form.matricula} onChange={(e) => setForm({ ...form, matricula: e.target.value })} required style={styles.input} />
+                <input value={form.matricula} onChange={(e) => setForm({ ...form, matricula: e.target.value })} required style={styles.input} disabled={!!editingId} />
               </div>
+
+              <div>
+                <label style={styles.label}>Login</label>
+                <input value={form.login} onChange={(e) => setForm({ ...form, login: e.target.value })} required style={styles.input} />
+              </div>
+
+              <div>
+                <label style={styles.label}>Senha</label>
+                <input type="password" value={form.senha} onChange={(e) => setForm({ ...form, senha: e.target.value })} required={!editingId} style={styles.input} />
+              </div>
+
+              <div>
+                <label style={styles.label}>Confirmar senha</label>
+                <input type="password" value={form.confirmaSenha} onChange={(e) => setForm({ ...form, confirmaSenha: e.target.value })} required={!editingId || !!form.senha} style={styles.input} />
+              </div>
+
+              <label style={styles.checkboxRow}>
+                <input
+                  type="checkbox"
+                  checked={form.forceChangePassword}
+                  onChange={(e) => setForm({ ...form, forceChangePassword: e.target.checked })}
+                  style={styles.checkbox}
+                />
+                <span style={styles.checkboxLabel}>Forçar troca de senha no primeiro acesso</span>
+              </label>
 
               <label style={styles.checkboxRow}>
                 <input type="checkbox" checked={form.ativo} onChange={(e) => setForm({ ...form, ativo: e.target.checked })} style={styles.checkbox} />
@@ -118,7 +175,7 @@ export default function OperadoresPage() {
 
               <div style={styles.formActions}>
                 <button type="submit" style={styles.successButton}>{editingId ? "Salvar" : "Criar"}</button>
-                <button type="button" onClick={() => setShowForm(false)} style={styles.secondaryButton}>Cancelar</button>
+                <button type="button" onClick={resetForm} style={styles.secondaryButton}>Cancelar</button>
               </div>
             </form>
           </div>
@@ -138,31 +195,38 @@ export default function OperadoresPage() {
                   <tr>
                     <th style={styles.th}>Nome</th>
                     <th style={styles.th}>Matrícula</th>
+                    <th style={styles.th}>Login</th>
                     <th style={styles.th}>Status</th>
-                    <th style={{ ...styles.th, width: 190 }}>Ações</th>
+                    <th style={{ ...styles.th, width: 220 }}>Ações</th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {operadores.length === 0 ? (
                     <tr>
-                      <td colSpan={4} style={styles.emptyCell}>Nenhum operador</td>
+                      <td colSpan={5} style={styles.emptyCell}>Nenhum operador</td>
                     </tr>
                   ) : (
                     operadores.map((operador) => (
                       <tr key={operador.id} className="cf-data-row" style={styles.tr}>
                         <td style={styles.tdName}>{operador.nome}</td>
-                        <td style={styles.td}><span style={styles.matriculaBadge}>{operador.matricula}</span></td>
+                        <td style={styles.td}><span style={styles.pill}>{operador.matricula}</span></td>
+                        <td style={styles.td}><span style={styles.pill}>{operador.login}</span></td>
                         <td style={styles.td}>
-                          <span style={{ ...styles.badge, ...(operador.ativo ? styles.badgeSuccess : styles.badgeDanger) }}>
-                            {operador.ativo ? "Ativo" : "Inativo"}
-                          </span>
+                          <div style={styles.actionRow}>
+                            <span style={{ ...styles.badge, ...(operador.ativo ? styles.badgeSuccess : styles.badgeDanger) }}>
+                              {operador.ativo ? "Ativo" : "Inativo"}
+                            </span>
+                            <span style={{ ...styles.badge, ...(operador.forceChangePassword ? styles.badgeDanger : styles.badgeSuccess) }}>
+                              {operador.forceChangePassword ? "Troca pendente" : "Senha liberada"}
+                            </span>
+                          </div>
                         </td>
                         <td style={styles.td}>
                           <div style={styles.actionRow}>
                             <button onClick={() => handleEdit(operador)} style={styles.secondarySmallButton}>Editar</button>
                             <button
-                              onClick={() => handleToggleStatus(operador)}
+                              onClick={() => void handleToggleStatus(operador)}
                               style={operador.ativo ? styles.dangerSmallButton : styles.successSmallButton}
                             >
                               {operador.ativo ? "Inativar" : "Ativar"}
@@ -245,7 +309,7 @@ const styles: Record<string, React.CSSProperties> = {
   tr: { borderBottom: "1px solid #F2F4F7" },
   td: { padding: "14px 18px", fontSize: 14, color: "#475467", verticalAlign: "middle" },
   tdName: { padding: "14px 18px", fontSize: 14.5, color: "#1F2937", fontWeight: 500, verticalAlign: "middle" },
-  matriculaBadge: { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 76, padding: "6px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, background: "#F2F4F7", color: "#475467", border: "1px solid #E4E7EC" },
+  pill: { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 76, padding: "6px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, background: "#F2F4F7", color: "#475467", border: "1px solid #E4E7EC" },
   badge: { display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 82, padding: "6px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 600 },
   badgeSuccess: { background: "#EAF8EE", color: "#1E7E34", border: "1px solid #B7E1C0" },
   badgeDanger: { background: "#FFF1F0", color: "#B42318", border: "1px solid #F2B8B5" },

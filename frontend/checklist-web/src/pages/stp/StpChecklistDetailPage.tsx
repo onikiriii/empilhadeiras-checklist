@@ -59,8 +59,8 @@ export default function StpChecklistDetailPage() {
 
       <section style={styles.card}>
         <div style={styles.metaGrid}>
-          <Meta label="Responsavel presente" value={checklist.responsavelPresenteNome} />
-          <Meta label="Cargo" value={checklist.responsavelPresenteCargo || "-"} />
+          <Meta label="Area inspecionada" value={checklist.areaInspecaoNome} />
+          <Meta label="Supervisor responsavel pela area" value={checklist.responsavelAreaNomeCompleto} />
           <Meta label="Inspetor" value={checklist.inspetorNomeCompleto} />
           <Meta label="Data" value={new Date(checklist.dataRealizacao).toLocaleString("pt-BR")} />
         </div>
@@ -103,7 +103,7 @@ export default function StpChecklistDetailPage() {
         <div style={styles.sectionTitle}>Rubricas</div>
         <div style={styles.signaturesGrid}>
           <SignatureView title="Rubrica do inspetor" image={checklist.assinaturaInspetorBase64} />
-          <SignatureView title="Rubrica do responsavel presente" image={checklist.assinaturaResponsavelPresenteBase64} />
+          <SignatureView title="Rubrica do responsavel da area" image={checklist.assinaturaResponsavelPresenteBase64} />
         </div>
       </section>
     </div>

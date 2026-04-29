@@ -98,8 +98,14 @@ export const api = {
   post: <T>(path: string, data: any) =>
     http<T>(path, { method: "POST", body: JSON.stringify(data) }),
 
+  postForm: <T>(path: string, data: FormData) =>
+    http<T>(path, { method: "POST", body: data }),
+
   put: <T>(path: string, data: any) =>
     http<T>(path, { method: "PUT", body: JSON.stringify(data) }),
+
+  putForm: <T>(path: string, data: FormData) =>
+    http<T>(path, { method: "PUT", body: data }),
 
   delete: <T>(path: string) =>
     http<T>(path, { method: "DELETE" }),

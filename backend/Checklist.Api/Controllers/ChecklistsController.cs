@@ -18,12 +18,18 @@ public class ChecklistsController : ControllerBase
 
     public ChecklistsController(AppDbContext db) => _db = db;
 
-    [AllowAnonymous]
+    [Authorize(Policy = "OperatorChecklistReady")]
     [HttpPost]
     public async Task<ActionResult<ChecklistDto>> Enviar([FromBody] EnviarChecklistRequest req)
     {
-        if (req.EquipamentoId == Guid.Empty || req.OperadorId == Guid.Empty)
-            return BadRequest(new { message = "EquipamentoId e OperadorId sao obrigatorios." });
+        var operadorId = CurrentOperadorClaims.GetOperadorId(User);
+        var operadorSetorId = CurrentOperadorClaims.GetSetorId(User);
+
+        if (operadorId is null || operadorSetorId is null)
+            return Unauthorized(new { message = "Operador autenticado invalido." });
+
+        if (req.EquipamentoId == Guid.Empty)
+            return BadRequest(new { message = "EquipamentoId e obrigatorio." });
 
         if (req.Itens.Count == 0)
             return BadRequest(new { message = "Checklist deve ter pelo menos um item." });
@@ -42,12 +48,18 @@ public class ChecklistsController : ControllerBase
 
         var operador = await _db.Operadores
             .AsNoTracking()
-            .FirstOrDefaultAsync(o => o.Id == req.OperadorId && o.Ativo);
+            .FirstOrDefaultAsync(o => o.Id == operadorId.Value && o.Ativo);
         if (operador is null)
             return BadRequest(new { message = "Operador invalido ou inativo." });
 
+        if (req.OperadorId != Guid.Empty && req.OperadorId != operador.Id)
+            return BadRequest(new { message = "O operador autenticado nao corresponde ao operador informado." });
+
         if (operador.SetorId != equipamento.SetorId)
             return BadRequest(new { message = "Operador e equipamento precisam pertencer ao mesmo setor." });
+
+        if (operador.SetorId != operadorSetorId.Value)
+            return BadRequest(new { message = "O setor autenticado do operador nao corresponde ao cadastro." });
 
         if (equipamento.Categoria.SetorId != equipamento.SetorId)
             return BadRequest(new { message = "O equipamento esta vinculado a uma categoria de outro setor." });
@@ -96,7 +108,7 @@ public class ChecklistsController : ControllerBase
         {
             SetorId = equipamento.SetorId,
             EquipamentoId = req.EquipamentoId,
-            OperadorId = req.OperadorId,
+            OperadorId = operador.Id,
             DataReferencia = dataReferencia,
             ObservacoesGerais = string.IsNullOrWhiteSpace(req.ObservacoesGerais) ? null : req.ObservacoesGerais.Trim(),
             AssinaturaOperadorBase64 = req.AssinaturaOperadorBase64.Trim(),

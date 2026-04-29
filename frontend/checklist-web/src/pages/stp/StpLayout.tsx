@@ -4,8 +4,9 @@ import { useAuth } from "../../auth";
 
 const navItems = [
   { to: "/stp/dashboard", label: "Dashboard" },
-  { to: "/stp/checklists/nova", label: "Nova inspeção" },
-  { to: "/stp/checklists", label: "Histórico" },
+  { to: "/stp/areas", label: "Areas" },
+  { to: "/stp/controle-documentos", label: "Controle de documentos" },
+  { to: "/stp/checklists", label: "Historico" },
 ];
 
 export default function StpLayout() {
@@ -20,9 +21,9 @@ export default function StpLayout() {
     <div style={styles.page}>
       <aside style={styles.sidebar}>
         <div style={styles.brand}>
-          <div style={styles.brandEyebrow}>Módulo</div>
+          <div style={styles.brandEyebrow}>Modulo</div>
           <div style={styles.brandTitle}>Seguranca do Trabalho</div>
-          <div style={styles.brandSubtitle}></div>
+          <div style={styles.brandSubtitle}>Inspecoes de area com fluxo proprio para inspetores.</div>
         </div>
 
         <nav style={styles.nav}>
@@ -48,7 +49,7 @@ export default function StpLayout() {
           </div>
 
           <Link to="/modulos" style={styles.switchLink}>
-            Trocar módulo
+            Trocar modulo
           </Link>
           <button type="button" onClick={handleLogout} style={styles.logoutButton}>
             Sair
