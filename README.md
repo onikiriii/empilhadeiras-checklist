@@ -1,5 +1,7 @@
 # CheckFlow
 
+Versão atual: `1.0.0`
+
 Sistema para checklist operacional de empilhadeiras, supervisão de não conformidades, inspeções de segurança do trabalho e administração de catálogos operacionais.
 
 ## Escopo funcional
@@ -105,6 +107,7 @@ empilhadeiras-checklist/
 |   `-- checklist-web/
 |-- docs/
 |-- infra/
+|-- CHANGELOG.md
 |-- DEPLOY.md
 |-- empilhadeiras-checklist.sln
 `-- README.md
@@ -208,6 +211,7 @@ Endpoint exposto:
 
 ## Documentação complementar
 
+- [CHANGELOG.md](CHANGELOG.md)
 - [DEPLOY.md](DEPLOY.md)
 - [docs/mysql-corporate-migration-guide.md](docs/mysql-corporate-migration-guide.md)
 - [docs/architecture.md](docs/architecture.md)
