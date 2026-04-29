@@ -1,0 +1,13 @@
+.git
+.github
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/dist-ssr
+artifacts
+backend/Checklist.Api/temp-build-*
+frontend/checklist-web
+RegistroRecebimento
+.env
+.env.*
