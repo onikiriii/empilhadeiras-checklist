@@ -1,6 +1,6 @@
 # CheckFlow
 
-Sistema corporativo para checklist operacional de empilhadeiras, supervisão de não conformidades, inspeções de segurança do trabalho e administração de catálogos operacionais.
+Sistema para checklist operacional de empilhadeiras, supervisão de não conformidades, inspeções de segurança do trabalho e administração de catálogos operacionais.
 
 ## Escopo funcional
 
@@ -156,7 +156,7 @@ Auth__Audience=CheckFlow.Web
 Variável principal do frontend:
 
 ```env
-VITE_API_BASE_URL=https://api.checkflow.empresa.com.br
+VITE_API_BASE_URL=http://localhost:5204
 ```
 
 ## Execução local
@@ -199,15 +199,6 @@ dotnet test backend/Checklist.Api.Tests/Checklist.Api.Tests.csproj
 cd frontend/checklist-web
 npm run build
 ```
-
-## Operação corporativa
-
-- frontend e backend em infraestrutura corporativa ou homologada
-- banco MySQL corporativo
-- segredos fora do repositório
-- SSL habilitado para conexão com banco
-- CORS restrito a origens explícitas
-- migrations controladas pelo processo de implantação
 
 ## Observabilidade
 

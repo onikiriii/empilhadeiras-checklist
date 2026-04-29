@@ -1,8 +1,8 @@
-# Deploy Corporativo
+# Setup and Deploy
 
-Documento de referência para implantação do CheckFlow em ambiente corporativo.
+Documento de referência para configuração e execução do CheckFlow.
 
-## Topologia alvo
+## Topologia
 
 ```text
 Usuário
@@ -14,7 +14,7 @@ Frontend SPA
 Checklist.Api
   |
   v
-MySQL corporativo
+MySQL
 ```
 
 ## Componentes
@@ -23,20 +23,19 @@ MySQL corporativo
 
 - aplicação React com build estático gerado por Vite
 - publicação do diretório `frontend/checklist-web/dist`
-- configuração de integração via `VITE_API_BASE_URL`
+- integração com a API por `VITE_API_BASE_URL`
 
 ### Backend
 
 - aplicação ASP.NET Core Web API
 - runtime compatível com .NET 10
 - autenticação JWT
-- integração com banco MySQL corporativo
+- integração com banco MySQL
 
 ### Banco de dados
 
 - instância MySQL acessível pelo backend
-- SSL habilitado quando exigido pela política da organização
-- credencial de aplicação com permissões compatíveis com o escopo operacional
+- credencial de aplicação com permissões compatíveis com o sistema
 
 ## Configuração da API
 
@@ -70,12 +69,12 @@ Variável principal:
 Exemplo:
 
 ```env
-VITE_API_BASE_URL=https://api.checkflow.empresa.com.br
+VITE_API_BASE_URL=http://localhost:5204
 ```
 
-## Política de CORS
+## CORS
 
-Em produção, o backend deve operar com origens explícitas.
+Quando necessário, configure origens explícitas no backend.
 
 Exemplo:
 
@@ -83,7 +82,7 @@ Exemplo:
 {
   "Cors": {
     "AllowedOrigins": [
-      "https://checkflow.empresa.com.br"
+      "http://localhost:5173"
     ]
   }
 }
@@ -91,25 +90,27 @@ Exemplo:
 
 ## Banco e migrations
 
-Diretrizes operacionais:
+Diretrizes:
 
 - migrations executadas de forma controlada
 - seed inicial executado de forma explícita
 - ausência de dependência de automação de startup para evolução de esquema
 
-Arquivo de referência:
+Comando para aplicar migrations:
 
-- `backend/Checklist.Api/appsettings.Corporate.example.json`
+```powershell
+dotnet ef database update --project backend/Checklist.Api/Checklist.Api.csproj --startup-project backend/Checklist.Api/Checklist.Api.csproj
+```
 
-## Sequência de implantação
+## Sequência de execução
 
-1. publicar o backend
-2. configurar segredos e connection string
-3. validar conectividade com o banco
-4. aplicar migrations
+1. configurar variáveis do backend
+2. validar conectividade com o banco
+3. aplicar migrations
+4. iniciar a API
 5. validar `GET /health`
-6. publicar o frontend com a URL final da API
-7. executar validação funcional
+6. configurar `VITE_API_BASE_URL`
+7. iniciar ou publicar o frontend
 
 ## Healthcheck
 
@@ -125,7 +126,7 @@ Resposta esperada:
 {"status":"ok"}
 ```
 
-## Validação pós-implantação
+## Validação
 
 ### Backend
 
@@ -149,15 +150,6 @@ Resposta esperada:
 - inspeções STP
 - controle documental STP
 - fechamento mensal
-
-## Restrições
-
-Não utilizar em produção:
-
-- segredos em arquivos versionados
-- connection strings reais no código
-- senhas reais no repositório
-- CORS aberto genericamente
 
 ## Referências
 
