@@ -38,7 +38,14 @@ public class OperadoresController : ControllerBase
 
         var lista = await query
             .OrderBy(o => o.Matricula)
-            .Select(o => ToDto(o))
+            .Select(o => new OperadorDto(
+                o.Id,
+                o.SetorId,
+                o.Matricula,
+                o.Nome,
+                o.Login,
+                o.ForceChangePassword,
+                o.Ativo))
             .ToListAsync();
 
         return Ok(lista);
@@ -57,7 +64,14 @@ public class OperadoresController : ControllerBase
         var op = await _db.Operadores
             .AsNoTracking()
             .Where(o => o.Matricula == matricula && o.SetorId == setorId.Value)
-            .Select(o => ToDto(o))
+            .Select(o => new OperadorDto(
+                o.Id,
+                o.SetorId,
+                o.Matricula,
+                o.Nome,
+                o.Login,
+                o.ForceChangePassword,
+                o.Ativo))
             .FirstOrDefaultAsync();
 
         return op is null ? NotFound(new { message = "Operador nao encontrado." }) : Ok(op);
