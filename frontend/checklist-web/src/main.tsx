@@ -1,7 +1,7 @@
 import "./styles/global.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { OperatorAuthProvider, RequireOperatorAuth } from "./operator-auth";
 import {
   AuthProvider,
@@ -56,7 +56,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <OperatorAuthProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/operador/login" element={<OperatorLoginPage />} />
@@ -262,7 +262,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </AuthProvider>
     </OperatorAuthProvider>
   </React.StrictMode>,

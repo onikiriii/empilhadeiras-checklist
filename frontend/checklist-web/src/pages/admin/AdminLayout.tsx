@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth";
 import "../../styles/global.css";
 
@@ -41,6 +41,7 @@ export default function AdminLayout() {
   const [userMenuVisible, setUserMenuVisible] = useState(false);
   const [sidebarTextVisible, setSidebarTextVisible] = useState(true);
   const location = useLocation();
+  const navigate = useNavigate();
   const menuRef = useRef<HTMLDivElement | null>(null);
   const { session, logout } = useAuth();
 
@@ -97,7 +98,7 @@ export default function AdminLayout() {
   function handleLogout() {
     setMenuOpen(false);
     logout();
-    window.location.replace("/login");
+    navigate("/login", { replace: true });
   }
 
   return (
