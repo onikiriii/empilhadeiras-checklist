@@ -184,17 +184,15 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var runMigrations = Environment.GetEnvironmentVariable("RUN_DB_MIGRATIONS");
-
-    if (string.Equals(runMigrations, "true", StringComparison.OrdinalIgnoreCase))
-    {
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    if (compatibilityOptions.ApplyMigrationsOnStartup)
         db.Database.Migrate();
-    }
 
-    var bootstrapDataSeeder = scope.ServiceProvider.GetRequiredService<BootstrapDataSeeder>();
-    await bootstrapDataSeeder.SeedAsync();
-}
+    if (compatibilityOptions.SeedOnStartup)
+    {
+        var bootstrapDataSeeder = scope.ServiceProvider.GetRequiredService<BootstrapDataSeeder>();
+        await bootstrapDataSeeder.SeedAsync();
+    }
 
 if (app.Environment.IsDevelopment())
 {
