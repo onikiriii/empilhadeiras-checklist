@@ -6,14 +6,15 @@ public static class SupervisorNaoOkHistoryBuilder
 {
     public static List<ItemNaoOkHistoricoEntryDto> BuildPainelHistorico(ChecklistItem item)
     {
+        var operadorNome = item.Checklist.Operador?.Nome ?? "Operador nao informado";
         var entries = new List<ItemNaoOkHistoricoEntryDto>
         {
             new(
                 Guid.Empty,
                 "Ocorrencia registrada",
-                $"{item.Checklist.Operador.Nome} registrou o item {item.Ordem} como nao OK no checklist.",
+                $"{operadorNome} registrou o item {item.Ordem} como nao OK no checklist.",
                 item.Checklist.DataRealizacao,
-                item.Checklist.Operador.Nome
+                operadorNome
             ),
         };
 

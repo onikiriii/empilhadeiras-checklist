@@ -6,6 +6,11 @@ public static class SupervisorNaoOkMapper
 {
     public static ItemNaoOkPainelItemDto ToPainelItemDto(ChecklistItem item, bool includeHistory = false)
     {
+        var setorOrigemNome = item.Checklist.Setor?.Nome ?? "Setor nao informado";
+        var equipamentoCodigo = item.Checklist.Equipamento?.Codigo ?? "Equipamento nao informado";
+        var equipamentoDescricao = item.Checklist.Equipamento?.Descricao ?? "Descricao nao informada";
+        var operadorNome = item.Checklist.Operador?.Nome ?? "Operador nao informado";
+        var operadorMatricula = item.Checklist.Operador?.Matricula ?? "-";
         var workflowStatus = item.Acao is null
             ? "pendente-aprovacao"
             : item.Acao.Status == ItemNaoOkAcaoStatus.Concluida
@@ -17,11 +22,11 @@ public static class SupervisorNaoOkMapper
             item.Id,
             item.Checklist.DataRealizacao,
             item.Checklist.SetorId,
-            item.Checklist.Setor.Nome,
-            item.Checklist.Equipamento.Codigo,
-            item.Checklist.Equipamento.Descricao,
-            item.Checklist.Operador.Nome,
-            item.Checklist.Operador.Matricula,
+            setorOrigemNome,
+            equipamentoCodigo,
+            equipamentoDescricao,
+            operadorNome,
+            operadorMatricula,
             item.Ordem,
             item.Descricao,
             item.Instrucao,
