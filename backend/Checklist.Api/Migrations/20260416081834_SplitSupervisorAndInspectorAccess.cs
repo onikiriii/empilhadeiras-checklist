@@ -11,51 +11,39 @@ namespace Checklist.Api.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
 {
-    migrationBuilder.Sql("""
-        ALTER TABLE `UsuariosSupervisores`
-        ADD COLUMN IF NOT EXISTS `TipoUsuario` int NOT NULL DEFAULT 1;
-        """);
+    migrationBuilder.AddColumn<int>(
+        name: "TipoUsuario",
+        table: "UsuariosSupervisores",
+        type: "int",
+        nullable: false,
+        defaultValue: 1);
 
-    migrationBuilder.Sql("""
-        CREATE TABLE IF NOT EXISTS `UsuariosSupervisoresModulos` (
-            `Id` char(36) NOT NULL,
-            `UsuarioSupervisorId` char(36) NOT NULL,
-            `Modulo` int NOT NULL,
-            `CriadoEm` datetime(6) NOT NULL,
-            PRIMARY KEY (`Id`),
-            CONSTRAINT `FK_UserSupervisorModules_User`
-                FOREIGN KEY (`UsuarioSupervisorId`)
-                REFERENCES `UsuariosSupervisores` (`Id`)
-                ON DELETE CASCADE
-        ) CHARACTER SET utf8mb4;
-        """);
+    migrationBuilder.CreateTable(
+        name: "UsuariosSupervisoresModulos",
+        columns: table => new
+        {
+            Id = table.Column<Guid>(type: "char(36)", nullable: false),
+            UsuarioSupervisorId = table.Column<Guid>(type: "char(36)", nullable: false),
+            Modulo = table.Column<int>(type: "int", nullable: false),
+            CriadoEm = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+        },
+        constraints: table =>
+        {
+            table.PrimaryKey("PK_UsuariosSupervisoresModulos", x => x.Id);
+            table.ForeignKey(
+                name: "FK_UserSupervisorModules_User",
+                column: x => x.UsuarioSupervisorId,
+                principalTable: "UsuariosSupervisores",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Cascade);
+        })
+        .Annotation("MySQL:Charset", "utf8mb4");
 
-    migrationBuilder.Sql("""
-        CREATE UNIQUE INDEX IF NOT EXISTS `IX_UsuariosSupervisoresModulos_UsuarioSupervisorId_Modulo`
-        ON `UsuariosSupervisoresModulos` (`UsuarioSupervisorId`, `Modulo`);
-        """);
-
-    migrationBuilder.Sql("""
-        INSERT INTO UsuariosSupervisoresModulos (Id, UsuarioSupervisorId, Modulo, CriadoEm)
-        SELECT UUID(), u.Id, 1, UTC_TIMESTAMP()
-        FROM UsuariosSupervisores u
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM UsuariosSupervisoresModulos m
-            WHERE m.UsuarioSupervisorId = u.Id
-              AND m.Modulo = 1
-        );
-        """);
-
-    migrationBuilder.Sql("""
-        ALTER TABLE `UsuariosSupervisores`
-        DROP COLUMN IF EXISTS `PodeAcessarSegurancaTrabalho`;
-        """);
-
-    migrationBuilder.Sql("""
-        ALTER TABLE `UsuariosSupervisores`
-        DROP COLUMN IF EXISTS `PodeAcessarSupervisaoOperacional`;
-        """);
+    migrationBuilder.CreateIndex(
+        name: "IX_UsuariosSupervisoresModulos_UsuarioSupervisorId_Modulo",
+        table: "UsuariosSupervisoresModulos",
+        columns: new[] { "UsuarioSupervisorId", "Modulo" },
+        unique: true);
 }
     }
 }
