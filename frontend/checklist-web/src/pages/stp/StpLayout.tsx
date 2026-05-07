@@ -1,5 +1,5 @@
 import React from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth";
 
 const navItems = [
@@ -11,10 +11,11 @@ const navItems = [
 
 export default function StpLayout() {
   const { session, logout } = useAuth();
+  const navigate = useNavigate();
 
   function handleLogout() {
     logout();
-    window.location.replace("/login");
+    navigate("/login", { replace: true });
   }
 
   return (
