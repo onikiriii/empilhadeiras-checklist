@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 
 type EquipamentoStatus = {
@@ -137,7 +138,7 @@ export default function SupervisorDashboard() {
                               })
                             : ""}
                         </span>
-                        <a className="cf-link" href={`/supervisor/checklist/${eq.checklistId}`}>Ver relatório</a>
+                        <Link className="cf-link" to={`/supervisor/checklist/${eq.checklistId}`}>Ver relatório</Link>
                       </div>
                     ) : null}
                   </div>
